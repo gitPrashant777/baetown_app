@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shop/components/cart_item_widget.dart';
 import 'package:shop/services/cart_service.dart';
+import 'package:shop/services/payment_service.dart';
 import 'package:shop/constants.dart';
 
 class CartScreen extends StatefulWidget {
@@ -22,11 +23,62 @@ class _CartScreenState extends State<CartScreen> {
   @override
   void dispose() {
     _cartService.removeListener(_onCartChanged);
+    // Dispose Razorpay payment service
+    PaymentService.dispose();
     super.dispose();
   }
 
   void _onCartChanged() {
     setState(() {});
+  }
+
+  void _processPayment() {
+    if (_cartService.items.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Your cart is empty!'),
+          backgroundColor: Colors.red,
+        ),
+      );
+      return;
+    }
+
+    // Initialize Razorpay with current context
+    PaymentService.initialize(context);
+
+    final totalAmount = _cartService.totalPrice;
+    final orderId = PaymentService.generateOrderId();
+
+    // Show loading dialog
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        return const AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Text('Processing payment...'),
+            ],
+          ),
+        );
+      },
+    );
+
+    // Close loading dialog after a short delay
+    Future.delayed(const Duration(milliseconds: 500), () {
+      Navigator.of(context).pop(); // Close loading dialog
+      
+      // Start Razorpay payment
+      PaymentService.startPayment(
+        amount: totalAmount,
+        orderId: orderId,
+        customerName: 'Customer', // You can get this from user profile
+        customerEmail: 'customer@example.com', // You can get this from user profile
+        customerContact: '9999999999', // You can get this from user profile
+      );
+    });
   }
 
   @override
@@ -144,14 +196,7 @@ class _CartScreenState extends State<CartScreen> {
                         SizedBox(
                           width: double.infinity,
                           child: ElevatedButton(
-                            onPressed: () {
-                              // TODO: Navigate to checkout
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Checkout functionality coming soon!'),
-                                ),
-                              );
-                            },
+                            onPressed: _processPayment,
                             style: ElevatedButton.styleFrom(
                               backgroundColor: primaryColor,
                               foregroundColor: Colors.white,

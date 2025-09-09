@@ -2,9 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/models/product_model.dart';
+import 'package:shop/models/user_session.dart';
 import 'package:shop/screens/admin/views/components/inventory_product_card.dart';
 import 'package:shop/screens/admin/views/components/stock_update_dialog.dart';
 import 'package:shop/screens/admin/views/product_management_screen.dart';
+import 'package:shop/services/products_api_service.dart';
+import 'package:shop/services/auth_api_service.dart';
+import 'package:shop/services/api_service.dart';
 
 class InventoryManagementScreen extends StatefulWidget {
   final VoidCallback? onProductUpdated;
@@ -19,9 +23,65 @@ class InventoryManagementScreen extends StatefulWidget {
 }
 
 class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
-  List<ProductModel> products = List.from(demoPopularProducts);
+  List<ProductModel> products = [];
+  bool _isLoading = true;
   String selectedFilter = 'All';
   final List<String> filterOptions = ['All', 'In Stock', 'Out of Stock', 'Low Stock'];
+  final ProductsApiService _productsApiService = ProductsApiService();
+  final AuthApiService _authApiService = AuthApiService();
+  final ApiService _apiService = ApiService();
+
+  @override
+  void initState() {
+    super.initState();
+    _checkAuthAndLoadProducts();
+  }
+
+  Future<void> _checkAuthAndLoadProducts() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      // Check if we have an auth token and valid admin session
+      final token = await _apiService.getAuthToken();
+      final userSession = await UserSession.getUserSession();
+      
+      if (token == null || userSession == null || 
+          userSession['userData'] == null ||
+          userSession['userData']['role']?.toString().toLowerCase() != 'admin') {
+        throw Exception('Admin authentication required. Please log out and log back in as an administrator.');
+      }
+      
+      print('✅ Admin authentication verified, loading products...');
+      
+      // Now try to load products
+      await _loadProducts();
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error initializing admin panel: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadProducts() async {
+    setState(() => _isLoading = true);
+    try {
+      final loadedProducts = await _productsApiService.getAllProducts();
+      setState(() {
+        products = loadedProducts;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading products: $e')),
+        );
+      }
+    }
+  }
 
   List<ProductModel> get filteredProducts {
     switch (selectedFilter) {
@@ -36,25 +96,41 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
     }
   }
 
-  void _updateProductStock(ProductModel product, int newStock, int newMaxOrder, bool outOfStock) {
-    setState(() {
-      int index = products.indexWhere((p) => p.productId == product.productId);
-      if (index != -1) {
-        products[index] = product.copyWith(
-          stockQuantity: newStock,
-          maxOrderQuantity: newMaxOrder,
-          isOutOfStock: outOfStock,
-        );
-        
-        // Update the global demo list as well
-        int globalIndex = demoPopularProducts.indexWhere((p) => p.productId == product.productId);
-        if (globalIndex != -1) {
-          demoPopularProducts[globalIndex] = products[index];
+  void _updateProductStock(ProductModel product, int newStock, int newMaxOrder, bool outOfStock) async {
+    try {
+      // Create updated product
+      final updatedProduct = product.copyWith(
+        stockQuantity: newStock,
+        maxOrderQuantity: newMaxOrder,
+        isOutOfStock: outOfStock,
+      );
+
+      // Update via API
+      await _productsApiService.updateProduct(product.productId!, updatedProduct);
+      
+      // Update local state
+      setState(() {
+        int index = products.indexWhere((p) => p.productId == product.productId);
+        if (index != -1) {
+          products[index] = updatedProduct;
         }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Product updated successfully')),
+        );
       }
-    });
-    
-    widget.onProductUpdated?.call();
+
+      // Notify parent about the update
+      widget.onProductUpdated?.call();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error updating product: $e')),
+        );
+      }
+    }
   }
 
   void _showStockUpdateDialog(ProductModel product) {
@@ -82,6 +158,13 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
+        actions: [
+          IconButton(
+            onPressed: _isLoading ? null : _checkAuthAndLoadProducts,
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            tooltip: 'Refresh Products',
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -132,44 +215,46 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
           
           // Products List
           Expanded(
-            child: filteredProducts.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SvgPicture.asset(
-                          "assets/icons/Category.svg",
-                          height: 64,
-                          width: 64,
-                          colorFilter: ColorFilter.mode(
-                            Theme.of(context).disabledColor,
-                            BlendMode.srcIn,
-                          ),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : filteredProducts.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SvgPicture.asset(
+                              "assets/icons/Category.svg",
+                              height: 64,
+                              width: 64,
+                              colorFilter: ColorFilter.mode(
+                                Theme.of(context).disabledColor,
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                            const SizedBox(height: defaultPadding),
+                            Text(
+                              "No products found",
+                              style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                                color: Theme.of(context).disabledColor,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(height: defaultPadding),
-                        Text(
-                          "No products found",
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Theme.of(context).disabledColor,
-                          ),
-                        ),
-                      ],
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(defaultPadding),
-                    itemCount: filteredProducts.length,
-                    itemBuilder: (context, index) {
-                      final product = filteredProducts[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: defaultPadding),
-                        child: InventoryProductCard(
-                          product: product,
-                          onTap: () => _showStockUpdateDialog(product),
-                        ),
-                      );
-                    },
-                  ),
+                      )
+                    : ListView.builder(
+                        padding: const EdgeInsets.all(defaultPadding),
+                        itemCount: filteredProducts.length,
+                        itemBuilder: (context, index) {
+                          final product = filteredProducts[index];
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: defaultPadding),
+                            child: InventoryProductCard(
+                              product: product,
+                              onTap: () => _showStockUpdateDialog(product),
+                            ),
+                          );
+                        },
+                      ),
           ),
         ],
       ),
@@ -180,10 +265,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
             MaterialPageRoute(
               builder: (context) => ProductManagementScreen(
                 onProductSaved: (product) {
-                  setState(() {
-                    products.add(product);
-                    demoPopularProducts.add(product); // Update global list
-                  });
+                  _loadProducts(); // Reload products from API
                   widget.onProductUpdated?.call();
                 },
               ),

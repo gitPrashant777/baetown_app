@@ -5,28 +5,195 @@ import 'package:shop/components/network_image_with_loader.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/route/screen_export.dart';
 import 'package:shop/models/user_session.dart';
+import 'package:shop/services/user_api_service.dart';
 
 import 'components/profile_card.dart';
 import 'components/profile_menu_item_list_tile.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
 
   @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  final UserApiService _userApiService = UserApiService();
+  Map<String, dynamic>? _userProfile;
+  bool _isLoading = true;
+  String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserProfile();
+  }
+
+  Future<void> _loadUserProfile() async {
+    try {
+      setState(() {
+        _isLoading = true;
+        _error = null;
+      });
+
+      final response = await _userApiService.getProfile();
+      
+      if (response.success && response.data != null) {
+        setState(() {
+          _userProfile = response.data!['user'] ?? response.data;
+          _isLoading = false;
+        });
+      } else {
+        setState(() {
+          _error = response.error ?? 'Failed to load profile';
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // Better error handling for HTML responses
+      String errorMessage = 'Error loading profile';
+      
+      if (e.toString().contains('FormatException') && e.toString().contains('<!DOCTYPE html>')) {
+        errorMessage = 'Profile service is currently unavailable. Please try again later.';
+      } else {
+        errorMessage = 'Error loading profile: $e';
+      }
+      
+      setState(() {
+        _error = errorMessage;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _handleLogout() async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => Center(
+          child: CircularProgressIndicator(),
+        ),
+      );
+
+      // Call backend logout API
+      final response = await _userApiService.logout();
+      
+      // Close loading dialog
+      Navigator.pop(context);
+      
+      if (response.success) {
+        // Clear local session
+        await UserSession.clearSession();
+        
+        // Navigate to login screen
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          logInScreenRoute,
+          (route) => false,
+        );
+      } else {
+        // Even if backend logout fails, clear local session
+        await UserSession.clearSession();
+        Navigator.pushNamedAndRemoveUntil(
+          context,
+          logInScreenRoute,
+          (route) => false,
+        );
+      }
+    } catch (e) {
+      // Close loading dialog if open
+      Navigator.pop(context);
+      
+      // Clear local session anyway
+      await UserSession.clearSession();
+      Navigator.pushNamedAndRemoveUntil(
+        context,
+        logInScreenRoute,
+        (route) => false,
+      );
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: ListView(
-        children: [
-          ProfileCard(
-            name: "Sepide",
-            email: "theflutterway@gmail.com",
-            imageSrc: "https://i.imgur.com/IXnwbLk.png",
-            // proLableText: "Sliver",
-            // isPro: true, if the user is pro
-            press: () {
-              Navigator.pushNamed(context, userInfoScreenRoute);
-            },
+    if (_isLoading) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(height: 16),
+              Text('Loading profile...'),
+            ],
           ),
+        ),
+      );
+    }
+
+    if (_error != null) {
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.error_outline, size: 64, color: Colors.red),
+              SizedBox(height: 16),
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  _error!,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 16),
+                ),
+              ),
+              SizedBox(height: 24),
+              Wrap(
+                alignment: WrapAlignment.center,
+                spacing: 16,
+                children: [
+                  ElevatedButton(
+                    onPressed: _loadUserProfile,
+                    child: Text('Retry'),
+                  ),
+                  if (_error!.contains('Authentication'))
+                    ElevatedButton(
+                      onPressed: _handleLogout,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.orange,
+                      ),
+                      child: Text('Re-login'),
+                    ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Extract user data with fallbacks
+    final userName = _userProfile?['name'] ?? 'User';
+    final userEmail = _userProfile?['email'] ?? 'user@example.com';
+    final userAvatar = _userProfile?['avatar'] ?? 'https://i.imgur.com/IXnwbLk.png';
+
+    return Scaffold(
+      body: RefreshIndicator(
+        onRefresh: _loadUserProfile,
+        child: ListView(
+          children: [
+            ProfileCard(
+              name: userName,
+              email: userEmail,
+              imageSrc: userAvatar,
+              // proLableText: "Sliver",
+              // isPro: true, if the user is pro
+              press: () {
+                Navigator.pushNamed(context, userInfoScreenRoute);
+              },
+            ),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: defaultPadding),
             child: Text(
@@ -38,8 +205,19 @@ class ProfileScreen extends StatelessWidget {
           ProfileMenuListTile(
             text: "Orders",
             svgSrc: "assets/icons/Order.svg",
-            press: () {
-              Navigator.pushNamed(context, ordersScreenRoute);
+            press: () async {
+              // Fetch and navigate to orders screen
+              try {
+                final ordersResponse = await _userApiService.getUserOrders();
+                if (ordersResponse.success) {
+                  Navigator.pushNamed(context, ordersScreenRoute);
+                } else {
+                  // Still navigate but show error in orders screen
+                  Navigator.pushNamed(context, ordersScreenRoute);
+                }
+              } catch (e) {
+                Navigator.pushNamed(context, ordersScreenRoute);
+              }
             },
           ),
           ProfileMenuListTile(
@@ -122,11 +300,6 @@ class ProfileScreen extends StatelessWidget {
               Navigator.pushNamed(context, selectLanguageScreenRoute);
             },
           ),
-          ProfileMenuListTile(
-            text: "Location",
-            svgSrc: "assets/icons/Location.svg",
-            press: () {},
-          ),
           const SizedBox(height: defaultPadding),
           Padding(
             padding: const EdgeInsets.symmetric(
@@ -153,7 +326,7 @@ class ProfileScreen extends StatelessWidget {
 
           // Log Out
           ListTile(
-            onTap: () {},
+            onTap: _handleLogout,
             minLeadingWidth: 24,
             leading: SvgPicture.asset(
               "assets/icons/Logout.svg",
@@ -170,6 +343,7 @@ class ProfileScreen extends StatelessWidget {
             ),
           )
         ],
+      ),
       ),
     );
   }

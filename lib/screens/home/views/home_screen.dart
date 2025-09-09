@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shop/components/Banner/S/banner_s_style_1.dart';
 import 'package:shop/components/Banner/S/banner_s_style_5.dart';
+import 'package:shop/components/free_delivery_banner.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/route/screen_export.dart';
 
@@ -19,6 +20,7 @@ class HomeScreen extends StatelessWidget {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
+            const SliverToBoxAdapter(child: FreeDeliveryBanner()),
             const SliverToBoxAdapter(child: OffersCarouselAndCategories()),
             const SliverToBoxAdapter(child: PopularProducts()),
             SliverPadding(
@@ -78,6 +80,10 @@ class HomeScreen extends StatelessWidget {
               ),
             ),
             const SliverToBoxAdapter(child: BestSellers()),
+            // Add some bottom spacing
+            const SliverToBoxAdapter(
+              child: SizedBox(height: defaultPadding * 2),
+            ),
           ],
         ),
       ),

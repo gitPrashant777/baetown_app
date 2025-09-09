@@ -59,6 +59,82 @@ class ProductModel {
     if (isOutOfStock || stockQuantity <= 0) return 0;
     return stockQuantity < maxOrderQuantity ? stockQuantity : maxOrderQuantity;
   }
+
+  // Convert from API JSON response
+  factory ProductModel.fromApi(Map<String, dynamic> json) {
+    return ProductModel(
+      productId: json['id']?.toString() ?? json['_id']?.toString(),
+      title: json['title'] ?? json['name'] ?? '',
+      brandName: json['brand'] ?? json['brandName'] ?? 'BAETOWN',
+      price: (json['price'] ?? 0).toDouble(),
+      priceAfetDiscount: json['discountPrice']?.toDouble() ?? json['priceAfterDiscount']?.toDouble(),
+      dicountpercent: json['discountPercent']?.toInt() ?? json['discountpercent']?.toInt(),
+      stockQuantity: json['stock'] ?? json['stockQuantity'] ?? 0,
+      maxOrderQuantity: json['maxOrderQuantity'] ?? 5,
+      isOutOfStock: json['isOutOfStock'] ?? (json['stock'] ?? 0) <= 0,
+      image: (json['images'] is List && (json['images'] as List).isNotEmpty) 
+          ? json['images'][0] 
+          : json['image'] ?? '',
+      images: json['images'] != null 
+          ? List<String>.from(json['images'])
+          : [json['image'] ?? ''],
+    );
+  }
+
+  // Convert to API JSON for sending
+  Map<String, dynamic> toApiJson() {
+    // Sanitize strings to prevent encoding issues
+    String sanitizeString(String input) {
+      return input.trim().replaceAll(RegExp(r'[^\w\s.-]'), '');
+    }
+    
+    final result = {
+      'name': sanitizeString(title), // Backend expects 'name', not 'title'
+      'description': sanitizeString(title), // Use title as description for now
+      'category': 'Electronics', // Use default category instead of brandName
+      'price': price,
+      'stock': stockQuantity, // Backend expects 'stock'
+      'images': [], // Include empty images array to match Postman exactly
+    };
+    print('🔍 toApiJson() returning: $result');
+    return result;
+  }
+
+  // Convert to JSON for local storage
+  Map<String, dynamic> toJson() {
+    return {
+      'id': productId,
+      'title': title,
+      'brandName': brandName,
+      'price': price,
+      'priceAfetDiscount': priceAfetDiscount,
+      'dicountpercent': dicountpercent,
+      'stockQuantity': stockQuantity,
+      'maxOrderQuantity': maxOrderQuantity,
+      'isOutOfStock': isOutOfStock,
+      'image': image,
+      'images': images,
+    };
+  }
+
+  // Create from JSON (local storage)
+  factory ProductModel.fromJson(Map<String, dynamic> json) {
+    return ProductModel(
+      productId: json['id'],
+      title: json['title'] ?? '',
+      brandName: json['brandName'] ?? 'BAETOWN',
+      price: (json['price'] ?? 0).toDouble(),
+      priceAfetDiscount: json['priceAfetDiscount']?.toDouble(),
+      dicountpercent: json['dicountpercent']?.toInt(),
+      stockQuantity: json['stockQuantity'] ?? 0,
+      maxOrderQuantity: json['maxOrderQuantity'] ?? 5,
+      isOutOfStock: json['isOutOfStock'] ?? false,
+      image: json['image'] ?? '',
+      images: json['images'] != null 
+          ? List<String>.from(json['images'])
+          : [json['image'] ?? ''],
+    );
+  }
 }
 
 List<ProductModel> demoPopularProducts = [

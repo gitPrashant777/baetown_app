@@ -8,10 +8,16 @@ class LogInForm extends StatelessWidget {
     super.key,
     required this.formKey,
     required this.onEmailChanged,
+    required this.onPasswordChanged,
+    this.emailController,
+    this.passwordController,
   });
 
   final GlobalKey<FormState> formKey;
   final Function(String) onEmailChanged;
+  final Function(String) onPasswordChanged;
+  final TextEditingController? emailController;
+  final TextEditingController? passwordController;
 
   @override
   Widget build(BuildContext context) {
@@ -20,6 +26,7 @@ class LogInForm extends StatelessWidget {
       child: Column(
         children: [
           TextFormField(
+            controller: emailController,
             onChanged: onEmailChanged,
             onSaved: (email) {
               // Email
@@ -49,10 +56,18 @@ class LogInForm extends StatelessWidget {
           ),
           const SizedBox(height: defaultPadding),
           TextFormField(
+            controller: passwordController,
+            onChanged: onPasswordChanged,
             onSaved: (pass) {
               // Password
             },
-            validator: passwordValidator.call,
+            validator: (value) {
+              // Temporarily simplified password validation for login
+              if (value == null || value.isEmpty) {
+                return 'Password is required';
+              }
+              return null; // Accept any non-empty password for now
+            },
             obscureText: true,
             decoration: InputDecoration(
               hintText: "Password",

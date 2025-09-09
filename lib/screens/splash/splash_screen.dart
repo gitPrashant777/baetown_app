@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shop/route/route_constants.dart';
+import 'package:shop/models/user_session.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -50,12 +51,41 @@ class _SplashScreenState extends State<SplashScreen>
     // Start the animation
     _animationController.forward();
 
-    // Wait for 3 seconds total
-    await Future.delayed(const Duration(seconds: 3));
+    // Wait for 2 seconds for animation to complete
+    await Future.delayed(const Duration(seconds: 2));
 
-    // Navigate to onboarding screen
-    if (mounted) {
-      Navigator.of(context).pushReplacementNamed(onbordingScreenRoute);
+    // Check if user is already logged in
+    await _checkLoginStatus();
+  }
+
+  Future<void> _checkLoginStatus() async {
+    try {
+      // Load saved user session
+      await UserSession.loadSession();
+
+      // Wait a bit more for smooth transition
+      await Future.delayed(const Duration(seconds: 1));
+
+      if (mounted) {
+        if (UserSession.isLoggedIn) {
+          // User is logged in, check if admin or regular user
+          if (UserSession.isAdmin) {
+            // Admin user - navigate to admin panel
+            Navigator.of(context).pushReplacementNamed(adminPanelScreenRoute);
+          } else {
+            // Regular user - navigate to home screen
+            Navigator.of(context).pushReplacementNamed(entryPointScreenRoute);
+          }
+        } else {
+          // User is not logged in, navigate to login screen
+          Navigator.of(context).pushReplacementNamed(logInScreenRoute);
+        }
+      }
+    } catch (e) {
+      // If there's an error loading session, go to login
+      if (mounted) {
+        Navigator.of(context).pushReplacementNamed(logInScreenRoute);
+      }
     }
   }
 
@@ -80,66 +110,12 @@ class _SplashScreenState extends State<SplashScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Logo
-                    Container(
-                      width: 140,
-                      height: 140,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.1),
-                            blurRadius: 20,
-                            offset: const Offset(0, 10),
-                          ),
-                        ],
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(20),
-                        child: Image.asset(
-                          'assets/logo/logo.jpg',
-                          fit: BoxFit.contain,
-                          errorBuilder: (context, error, stackTrace) {
-                            // Fallback if logo.jpg is not found
-                            return Container(
-                              decoration: BoxDecoration(
-                                borderRadius: BorderRadius.circular(20),
-                                gradient: LinearGradient(
-                                  begin: Alignment.topLeft,
-                                  end: Alignment.bottomRight,
-                                  colors: [
-                                    Theme.of(context).primaryColor,
-                                    Theme.of(context).primaryColor.withOpacity(0.7),
-                                  ],
-                                ),
-                              ),
-                              child: const Icon(
-                                Icons.shopping_bag,
-                                color: Colors.white,
-                                size: 60,
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-                    
-                    // App Title
+                    // App Title (moved up, logo removed)
                     Text(
                       'BAETOWN',
                       style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Theme.of(context).primaryColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    
-                    // Tagline
-                    Text(
-                      'Exquisite Jewelry Collection',
-                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                        color: Theme.of(context).textTheme.bodyLarge?.color?.withOpacity(0.7),
+                        color: Colors.black, // Changed to black color
                       ),
                     ),
                     const SizedBox(height: 40),

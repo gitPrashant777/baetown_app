@@ -1,5 +1,4 @@
 const String splashScreenRoute = "splash";
-const String onbordingScreenRoute = "onbording";
 const String notificationPermissionScreenRoute = "notification_permission";
 const String preferredLanuageScreenRoute = "preferred_language";
 const String logInScreenRoute = "login";
@@ -60,5 +59,6 @@ const String addNewCardScreenRoute = "add_new_card";
 const String thanksForOrderScreenRoute = "thanks_order";
 
 // Admin Panel Routes
+const String adminLoginScreenRoute = "admin_login";
 const String adminPanelScreenRoute = "admin_panel";
 const String inventoryManagementScreenRoute = "inventory_management";

@@ -4,6 +4,7 @@ import 'package:shop/constants.dart';
 import 'package:shop/models/product_model.dart';
 import 'package:shop/screens/admin/views/components/inventory_product_card.dart';
 import 'package:shop/screens/admin/views/product_management_screen.dart';
+import 'package:shop/services/products_api_service.dart';
 
 class ProductListManagementScreen extends StatefulWidget {
   const ProductListManagementScreen({super.key});
@@ -13,9 +14,35 @@ class ProductListManagementScreen extends StatefulWidget {
 }
 
 class _ProductListManagementScreenState extends State<ProductListManagementScreen> {
-  List<ProductModel> products = List.from(demoPopularProducts);
+  List<ProductModel> products = [];
+  bool _isLoading = true;
   String selectedFilter = 'All';
   final List<String> filterOptions = ['All', 'In Stock', 'Out of Stock', 'Low Stock'];
+  final ProductsApiService _productsApiService = ProductsApiService();
+
+  @override
+  void initState() {
+    super.initState();
+    _loadProducts();
+  }
+
+  Future<void> _loadProducts() async {
+    setState(() => _isLoading = true);
+    try {
+      final loadedProducts = await _productsApiService.getAllProducts();
+      setState(() {
+        products = loadedProducts;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error loading products: $e')),
+        );
+      }
+    }
+  }
 
   List<ProductModel> get filteredProducts {
     switch (selectedFilter) {
@@ -36,10 +63,7 @@ class _ProductListManagementScreenState extends State<ProductListManagementScree
       MaterialPageRoute(
         builder: (context) => ProductManagementScreen(
           onProductSaved: (product) {
-            setState(() {
-              products.add(product);
-              demoPopularProducts.add(product); // Update global list
-            });
+            _loadProducts(); // Reload products from API
           },
         ),
       ),
@@ -53,18 +77,7 @@ class _ProductListManagementScreenState extends State<ProductListManagementScree
         builder: (context) => ProductManagementScreen(
           product: product,
           onProductSaved: (updatedProduct) {
-            setState(() {
-              int index = products.indexWhere((p) => p.productId == product.productId);
-              if (index != -1) {
-                products[index] = updatedProduct;
-              }
-              
-              // Update global list
-              int globalIndex = demoPopularProducts.indexWhere((p) => p.productId == product.productId);
-              if (globalIndex != -1) {
-                demoPopularProducts[globalIndex] = updatedProduct;
-              }
-            });
+            _loadProducts(); // Reload products from API
           },
         ),
       ),
@@ -83,18 +96,27 @@ class _ProductListManagementScreenState extends State<ProductListManagementScree
             child: const Text('Cancel'),
           ),
           TextButton(
-            onPressed: () {
-              setState(() {
-                products.removeWhere((p) => p.productId == product.productId);
-                demoPopularProducts.removeWhere((p) => p.productId == product.productId);
-              });
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Product deleted successfully'),
-                  backgroundColor: successColor,
-                ),
-              );
+            onPressed: () async {
+              try {
+                await _productsApiService.deleteProduct(product.productId!);
+                _loadProducts(); // Reload products from API
+                Navigator.pop(context);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text('Product deleted successfully'),
+                      backgroundColor: successColor,
+                    ),
+                  );
+                }
+              } catch (e) {
+                Navigator.pop(context);
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('Error deleting product: $e')),
+                  );
+                }
+              }
             },
             style: TextButton.styleFrom(foregroundColor: errorColor),
             child: const Text('Delete'),
@@ -181,21 +203,23 @@ class _ProductListManagementScreenState extends State<ProductListManagementScree
           
           // Products List
           Expanded(
-            child: filteredProducts.isEmpty
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        SvgPicture.asset(
-                          "assets/icons/Category.svg",
-                          height: 64,
-                          width: 64,
-                          colorFilter: ColorFilter.mode(
-                            Theme.of(context).disabledColor,
-                            BlendMode.srcIn,
-                          ),
-                        ),
-                        const SizedBox(height: defaultPadding),
+            child: _isLoading
+                ? const Center(child: CircularProgressIndicator())
+                : filteredProducts.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SvgPicture.asset(
+                              "assets/icons/Category.svg",
+                              height: 64,
+                              width: 64,
+                              colorFilter: ColorFilter.mode(
+                                Theme.of(context).disabledColor,
+                                BlendMode.srcIn,
+                              ),
+                            ),
+                            const SizedBox(height: defaultPadding),
                         Text(
                           "No products found",
                           style: Theme.of(context).textTheme.titleMedium?.copyWith(

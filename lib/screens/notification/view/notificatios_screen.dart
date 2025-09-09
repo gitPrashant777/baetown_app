@@ -26,9 +26,9 @@ class NotificationsScreen extends StatelessWidget {
       body: ListView(
         padding: const EdgeInsets.all(defaultPadding),
         children: [
-          // Today Section
+          // Recent Section
           Text(
-            "Today",
+            "Recent",
             style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.w600,
             ),
@@ -36,51 +36,34 @@ class NotificationsScreen extends StatelessWidget {
           const SizedBox(height: defaultPadding),
           
           // Notification Items
-          _buildNotificationItem(
+          _buildNotificationCard(
             context,
             title: "Order Confirmed",
             subtitle: "Your order for Diamond Solitaire Ring has been confirmed and is being processed.",
             time: "2 hours ago",
-            icon: "assets/icons/Order.svg",
+            icon: Icons.shopping_bag_outlined,
             iconColor: successColor,
+            isUnread: true,
           ),
           
-          _buildNotificationItem(
-            context,
-            title: "New Arrivals",
-            subtitle: "Check out our latest bridal collection with stunning engagement rings.",
-            time: "4 hours ago",
-            icon: "assets/icons/Gift.svg",
-            iconColor: primaryColor,
-          ),
-          
-          const SizedBox(height: defaultPadding),
-          
-          // Yesterday Section
-          Text(
-            "Yesterday",
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: defaultPadding),
-          
-          _buildNotificationItem(
+          _buildNotificationCard(
             context,
             title: "Flash Sale Alert",
-            subtitle: "30% off on all gold necklaces. Limited time offer ending soon!",
-            time: "1 day ago",
-            icon: "assets/icons/Discount.svg",
+            subtitle: "Up to 70% off on selected jewelry items. Limited time offer ending soon!",
+            time: "4 hours ago",
+            icon: Icons.local_fire_department_outlined,
             iconColor: warningColor,
+            isUnread: true,
           ),
           
-          _buildNotificationItem(
+          _buildNotificationCard(
             context,
             title: "Wishlist Update",
-            subtitle: "Pearl Drop Earrings from your wishlist is now available with discount.",
+            subtitle: "The item 'Gold Chain Bracelet' you wishlisted is now back in stock.",
             time: "1 day ago",
-            icon: "assets/icons/Wishlist.svg",
+            icon: Icons.favorite_outline,
             iconColor: primaryColor,
+            isUnread: false,
           ),
           
           const SizedBox(height: defaultPadding),
@@ -94,104 +77,128 @@ class NotificationsScreen extends StatelessWidget {
           ),
           const SizedBox(height: defaultPadding),
           
-          _buildNotificationItem(
+          _buildNotificationCard(
             context,
-            title: "Welcome to BAETOWN",
-            subtitle: "Thank you for joining BAETOWN! Explore our premium jewelry collection.",
+            title: "New Arrivals",
+            subtitle: "Check out our latest collection of premium watches and accessories.",
             time: "3 days ago",
-            icon: "assets/icons/Gift.svg",
-            iconColor: primaryColor,
+            icon: Icons.star_outline,
+            iconColor: Colors.amber,
+            isUnread: false,
+          ),
+          
+          _buildNotificationCard(
+            context,
+            title: "Payment Successful",
+            subtitle: "Your payment for order #12345 has been processed successfully.",
+            time: "5 days ago",
+            icon: Icons.check_circle_outline,
+            iconColor: successColor,
+            isUnread: false,
+          ),
+          
+          _buildNotificationCard(
+            context,
+            title: "Delivery Update",
+            subtitle: "Your order has been shipped and will arrive within 2-3 business days.",
+            time: "1 week ago",
+            icon: Icons.local_shipping_outlined,
+            iconColor: Colors.blue,
+            isUnread: false,
           ),
         ],
       ),
     );
   }
 
-  Widget _buildNotificationItem(
+  Widget _buildNotificationCard(
     BuildContext context, {
     required String title,
     required String subtitle,
     required String time,
-    required String icon,
+    required IconData icon,
     required Color iconColor,
+    required bool isUnread,
   }) {
     return Container(
       margin: const EdgeInsets.only(bottom: defaultPadding),
-      padding: const EdgeInsets.all(defaultPadding),
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: Theme.of(context).cardColor,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: Theme.of(context).dividerColor.withOpacity(0.1),
+          color: Colors.grey.shade200,
+          width: 1,
         ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
+            blurRadius: 4,
             offset: const Offset(0, 2),
           ),
         ],
       ),
-      child: Row(
-        children: [
-          // Icon
-          Container(
-            height: 50,
-            width: 50,
-            decoration: BoxDecoration(
-              color: iconColor.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(25),
-            ),
-            child: Center(
-              child: SvgPicture.asset(
+      child: ListTile(
+        contentPadding: const EdgeInsets.all(defaultPadding),
+        leading: Stack(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: iconColor.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(
                 icon,
-                height: 24,
-                width: 24,
-                colorFilter: ColorFilter.mode(
-                  iconColor,
-                  BlendMode.srcIn,
-                ),
+                color: iconColor,
+                size: 24,
               ),
             ),
+            if (isUnread)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+          ],
+        ),
+        title: Text(
+          title,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w600,
           ),
-          
-          const SizedBox(width: defaultPadding),
-          
-          // Content
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontWeight: FontWeight.w600,
-                    fontSize: 16,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  subtitle,
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.7),
-                    fontSize: 14,
-                    height: 1.4,
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  time,
-                  style: TextStyle(
-                    color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.5),
-                    fontSize: 12,
-                  ),
-                ),
-              ],
+        ),
+        subtitle: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const SizedBox(height: 4),
+            Text(
+              subtitle,
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey.shade600,
+              ),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              time,
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                color: Colors.grey.shade500,
+                fontSize: 12,
+              ),
+            ),
+          ],
+        ),
+        onTap: () {
+          // Handle notification tap
+        },
       ),
     );
   }

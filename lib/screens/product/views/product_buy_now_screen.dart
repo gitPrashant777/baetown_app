@@ -86,11 +86,7 @@ class _ProductBuyNowScreenState extends State<ProductBuyNowScreen> {
                   currentProduct.title,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
-                IconButton(
-                  onPressed: () {},
-                  icon: SvgPicture.asset("assets/icons/Bookmark.svg",
-                      color: Theme.of(context).textTheme.bodyLarge!.color),
-                ),
+                _WishlistIconButton(),
               ],
             ),
           ),
@@ -215,6 +211,41 @@ class _ProductBuyNowScreenState extends State<ProductBuyNowScreen> {
             ),
           )
         ],
+      ),
+    );
+  }
+}
+
+class _WishlistIconButton extends StatefulWidget {
+  @override
+  _WishlistIconButtonState createState() => _WishlistIconButtonState();
+}
+
+class _WishlistIconButtonState extends State<_WishlistIconButton> {
+  bool isInWishlist = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: () {
+        setState(() {
+          isInWishlist = !isInWishlist;
+        });
+        // TODO: Add actual wishlist API call here
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isInWishlist ? 'Added to wishlist' : 'Removed from wishlist',
+            ),
+            duration: Duration(milliseconds: 1000),
+          ),
+        );
+      },
+      icon: Icon(
+        isInWishlist ? Icons.favorite : Icons.favorite_border,
+        color: isInWishlist 
+          ? Colors.red 
+          : Theme.of(context).textTheme.bodyLarge!.color,
       ),
     );
   }

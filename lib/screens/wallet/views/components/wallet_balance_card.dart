@@ -54,7 +54,7 @@ class WalletBalanceCard extends StatelessWidget {
           ElevatedButton(
             onPressed: onTabChargeBalance,
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF9581FF),
+              backgroundColor: const Color(0xFFE91E63), // Changed to pink
               shape: const RoundedRectangleBorder(
                 borderRadius: BorderRadius.only(
                   bottomLeft: Radius.circular(defaultBorderRadious),

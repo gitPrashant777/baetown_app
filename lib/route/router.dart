@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shop/entry_point.dart';
+import 'package:shop/screens/auth/views/terms_of_services_screen.dart';
 
 import 'screen_export.dart';
 
@@ -8,10 +9,6 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case splashScreenRoute:
       return MaterialPageRoute(
         builder: (context) => const SplashScreen(),
-      );
-    case onbordingScreenRoute:
-      return MaterialPageRoute(
-        builder: (context) => const OnBordingScreen(),
       );
     // case preferredLanuageScreenRoute:
     //   return MaterialPageRoute(
@@ -49,10 +46,10 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     //   return MaterialPageRoute(
     //     builder: (context) => const DoneResetPasswordScreen(),
     //   );
-    // case termsOfServicesScreenRoute:
-    //   return MaterialPageRoute(
-    //     builder: (context) => const TermsOfServicesScreen(),
-    //   );
+    case termsOfServicesScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) => const TermsOfServicesScreen(),
+      );
     // case noInternetScreenRoute:
     //   return MaterialPageRoute(
     //     builder: (context) => const NoInternetScreen(),
@@ -232,6 +229,10 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return MaterialPageRoute(
         builder: (context) => const CartScreen(),
       );
+    case adminLoginScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) => const AdminLoginScreen(),
+      );
     case adminPanelScreenRoute:
       return MaterialPageRoute(
         builder: (context) => const AdminPanelScreen(),
@@ -255,7 +256,7 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     default:
       return MaterialPageRoute(
         // Make a screen for undefine
-        builder: (context) => const OnBordingScreen(),
+        builder: (context) => const SplashScreen(),
       );
   }
 }

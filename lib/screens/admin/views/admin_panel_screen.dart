@@ -7,6 +7,9 @@ import 'package:shop/route/route_constants.dart';
 import 'package:shop/screens/admin/views/inventory_management_screen.dart';
 import 'package:shop/screens/admin/views/components/admin_dashboard_card.dart';
 import 'package:shop/screens/admin/views/product_list_management_screen.dart';
+import 'package:shop/services/products_api_service.dart';
+import 'package:shop/services/auth_api_service.dart';
+import 'package:shop/services/api_service.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -16,20 +19,85 @@ class AdminPanelScreen extends StatefulWidget {
 }
 
 class _AdminPanelScreenState extends State<AdminPanelScreen> {
+  final ProductsApiService _productsApi = ProductsApiService();
+  final AuthApiService _authApiService = AuthApiService();
+  final ApiService _apiService = ApiService();
+  
   int totalProducts = 0;
   int outOfStockProducts = 0;
   int lowStockProducts = 0;
+  bool _isLoading = true;
+  List<ProductModel> _products = [];
 
   @override
   void initState() {
     super.initState();
-    _calculateStats();
+    _checkAuthAndLoadStats();
+  }
+
+  Future<void> _checkAuthAndLoadStats() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      // Check if we have valid admin session and token
+      final token = await _apiService.getAuthToken();
+      final userSession = await UserSession.getUserSession();
+      
+      if (token == null || userSession == null || 
+          userSession['userData'] == null ||
+          userSession['userData']['role']?.toString().toLowerCase() != 'admin') {
+        throw Exception('Admin authentication required. Please log out and log back in as an administrator.');
+      }
+      
+      print('✅ Admin authentication verified, loading stats...');
+      
+      // Now try to load products and stats
+      await _loadProductsAndCalculateStats();
+    } catch (e) {
+      setState(() => _isLoading = false);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error initializing admin panel: $e')),
+        );
+      }
+    }
+  }
+
+  Future<void> _loadProductsAndCalculateStats() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      // Fetch products from API with a high limit to get all products for statistics
+      final products = await _productsApi.getAllProducts();
+      
+      _products = products;
+      _calculateStats();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load products: ${e.toString()}'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      // Reset stats to 0
+      totalProducts = 0;
+      outOfStockProducts = 0;
+      lowStockProducts = 0;
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   void _calculateStats() {
-    totalProducts = demoPopularProducts.length;
-    outOfStockProducts = demoPopularProducts.where((p) => p.isOutOfStock || p.stockQuantity <= 0).length;
-    lowStockProducts = demoPopularProducts.where((p) => p.stockQuantity > 0 && p.stockQuantity <= 5).length;
+    totalProducts = _products.length;
+    outOfStockProducts = _products.where((p) => p.isOutOfStock || p.stockQuantity <= 0).length;
+    lowStockProducts = _products.where((p) => p.stockQuantity > 0 && p.stockQuantity <= 5).length;
   }
 
   @override
@@ -48,9 +116,14 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          IconButton(
+            onPressed: _isLoading ? null : _checkAuthAndLoadStats,
+            icon: const Icon(Icons.refresh, color: Colors.white),
+            tooltip: 'Refresh Dashboard',
+          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, color: Colors.white),
-            onSelected: (value) {
+            onSelected: (value) async {
               switch (value) {
                 case 'user_view':
                   Navigator.pushNamedAndRemoveUntil(
@@ -60,7 +133,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   );
                   break;
                 case 'logout':
-                  UserSession.clearSession();
+                  await UserSession.clearSession();
                   Navigator.pushNamedAndRemoveUntil(
                     context,
                     logInScreenRoute,
@@ -94,12 +167,26 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
           ),
         ],
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(defaultPadding),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Admin Welcome Section
+      body: _isLoading
+          ? const Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  CircularProgressIndicator(color: primaryColor),
+                  SizedBox(height: 16),
+                  Text(
+                    'Loading product data...',
+                    style: TextStyle(color: Colors.grey),
+                  ),
+                ],
+              ),
+            )
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(defaultPadding),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // Admin Welcome Section
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(defaultPadding),
@@ -230,9 +317,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   MaterialPageRoute(
                     builder: (context) => InventoryManagementScreen(
                       onProductUpdated: () {
-                        setState(() {
-                          _calculateStats();
-                        });
+                        _checkAuthAndLoadStats();
                       },
                     ),
                   ),
@@ -244,7 +329,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               context,
               title: "Product Management",
               subtitle: "Add, edit, and manage product catalog with images",
-              icon: "assets/icons/Add.svg",
+              icon: "assets/icons/Plus1.svg",
               onTap: () {
                 Navigator.push(
                   context,
@@ -252,9 +337,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                     builder: (context) => const ProductListManagementScreen(),
                   ),
                 ).then((_) {
-                  setState(() {
-                    _calculateStats();
-                  });
+                  _checkAuthAndLoadStats();
                 });
               },
             ),
@@ -276,7 +359,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               context,
               title: "Product Analytics",
               subtitle: "View sales analytics and product performance",
-              icon: "assets/icons/Chart.svg",
+              icon: "assets/icons/Setting.svg",
               onTap: () {
                 // Navigate to analytics (to be implemented)
                 ScaffoldMessenger.of(context).showSnackBar(

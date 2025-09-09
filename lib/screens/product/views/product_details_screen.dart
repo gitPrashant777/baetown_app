@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:shop/components/cart_button.dart';
 import 'package:shop/components/custom_modal_bottom_sheet.dart';
+import 'package:shop/components/free_delivery_banner.dart';
 import 'package:shop/components/product/product_card.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/screens/product/views/product_returns_screen.dart';
@@ -46,15 +47,12 @@ class ProductDetailsScreen extends StatelessWidget {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
+            const SliverToBoxAdapter(child: FreeDeliveryBanner()),
             SliverAppBar(
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               floating: true,
               actions: [
-                IconButton(
-                  onPressed: () {},
-                  icon: SvgPicture.asset("assets/icons/Bookmark.svg",
-                      color: Theme.of(context).textTheme.bodyLarge!.color),
-                ),
+                _WishlistIconButton(),
               ],
             ),
             const ProductImages(
@@ -188,6 +186,41 @@ class ProductDetailsScreen extends StatelessWidget {
             )
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _WishlistIconButton extends StatefulWidget {
+  @override
+  _WishlistIconButtonState createState() => _WishlistIconButtonState();
+}
+
+class _WishlistIconButtonState extends State<_WishlistIconButton> {
+  bool isInWishlist = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      onPressed: () {
+        setState(() {
+          isInWishlist = !isInWishlist;
+        });
+        // TODO: Add actual wishlist API call here
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              isInWishlist ? 'Added to wishlist' : 'Removed from wishlist',
+            ),
+            duration: Duration(milliseconds: 1000),
+          ),
+        );
+      },
+      icon: Icon(
+        isInWishlist ? Icons.favorite : Icons.favorite_border,
+        color: isInWishlist 
+          ? Colors.red 
+          : Theme.of(context).textTheme.bodyLarge!.color,
       ),
     );
   }
