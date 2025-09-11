@@ -62,6 +62,48 @@ class ProductModel {
 
   // Convert from API JSON response
   factory ProductModel.fromApi(Map<String, dynamic> json) {
+    // Safely extract images array, handling various data structures
+    List<String> extractImages(dynamic imageData) {
+      try {
+        if (imageData == null) {
+          return [json['image']?.toString() ?? ''];
+        }
+        
+        if (imageData is List) {
+          // Handle list of images - could be strings or objects
+          return imageData.map((item) {
+            if (item is String) {
+              return item;
+            } else if (item is Map<String, dynamic>) {
+              // Handle image objects with url property
+              return item['url']?.toString() ?? item['src']?.toString() ?? '';
+            }
+            return item.toString();
+          }).where((url) => url.isNotEmpty).toList();
+        }
+        
+        if (imageData is String) {
+          return [imageData];
+        }
+        
+        // If it's an object, try to extract URL
+        if (imageData is Map<String, dynamic>) {
+          final url = imageData['url']?.toString() ?? imageData['src']?.toString();
+          if (url != null && url.isNotEmpty) {
+            return [url];
+          }
+        }
+        
+        // Fallback to single image from json['image']
+        return [json['image']?.toString() ?? ''];
+      } catch (e) {
+        print('⚠️ Error processing images for product ${json['name'] ?? 'unknown'}: $e');
+        return [json['image']?.toString() ?? ''];
+      }
+    }
+    
+    final imagesList = extractImages(json['images']);
+    
     return ProductModel(
       productId: json['id']?.toString() ?? json['_id']?.toString(),
       title: json['title'] ?? json['name'] ?? '',
@@ -72,12 +114,8 @@ class ProductModel {
       stockQuantity: json['stock'] ?? json['stockQuantity'] ?? 0,
       maxOrderQuantity: json['maxOrderQuantity'] ?? 5,
       isOutOfStock: json['isOutOfStock'] ?? (json['stock'] ?? 0) <= 0,
-      image: (json['images'] is List && (json['images'] as List).isNotEmpty) 
-          ? json['images'][0] 
-          : json['image'] ?? '',
-      images: json['images'] != null 
-          ? List<String>.from(json['images'])
-          : [json['image'] ?? ''],
+      image: imagesList.isNotEmpty ? imagesList.first : '',
+      images: imagesList,
     );
   }
 

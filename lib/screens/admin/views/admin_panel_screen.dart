@@ -10,6 +10,7 @@ import 'package:shop/screens/admin/views/product_list_management_screen.dart';
 import 'package:shop/services/products_api_service.dart';
 import 'package:shop/services/auth_api_service.dart';
 import 'package:shop/services/api_service.dart';
+import 'package:shop/debug_api_test_screen.dart';
 
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
@@ -64,6 +65,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   }
 
   Future<void> _loadProductsAndCalculateStats() async {
+    print('📊 Loading products and calculating stats...');
     setState(() {
       _isLoading = true;
     });
@@ -71,10 +73,13 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     try {
       // Fetch products from API with a high limit to get all products for statistics
       final products = await _productsApi.getAllProducts();
+      print('📦 Loaded ${products.length} products for stats');
       
       _products = products;
       _calculateStats();
+      print('📊 Stats calculated: Total=$totalProducts, OutOfStock=$outOfStockProducts, LowStock=$lowStockProducts');
     } catch (e) {
+      print('❌ Error loading products for stats: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -116,6 +121,16 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
+          IconButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ApiTestScreen()),
+              );
+            },
+            icon: const Icon(Icons.bug_report, color: Colors.white),
+            tooltip: 'API Test',
+          ),
           IconButton(
             onPressed: _isLoading ? null : _checkAuthAndLoadStats,
             icon: const Icon(Icons.refresh, color: Colors.white),

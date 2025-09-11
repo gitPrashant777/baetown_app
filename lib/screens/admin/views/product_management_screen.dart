@@ -6,6 +6,8 @@ import 'package:shop/models/product_model.dart';
 import 'package:shop/models/user_session.dart';
 import 'package:shop/models/simple_token_manager.dart';
 import 'package:shop/services/api_service.dart';
+// import 'package:shop/services/cloudinary_service.dart'; // Temporarily commented
+// import 'package:shop/services/cloudinary_config.dart'; // Temporarily commented
 import 'package:http/http.dart' as http;
 import 'package:dio/dio.dart';
 import 'dart:convert';
@@ -34,11 +36,15 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
   final _discountPriceController = TextEditingController();
   final _stockController = TextEditingController();
   final _maxOrderController = TextEditingController();
+  final _imageUrlController = TextEditingController(); // New field for manual image URL entry
   
   List<String> _selectedImages = [];
   List<File> _newImageFiles = [];
+  // List<CloudinaryResponse> _uploadedImages = []; // Track Cloudinary uploads - temporarily commented
+  List<Map<String, dynamic>> _uploadedImages = []; // Track Cloudinary uploads - using Map for now
   bool _isOutOfStock = false;
   bool _isLoading = false;
+  bool _isUploadingImages = false; // Track image upload progress
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -51,6 +57,19 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
 
   void _loadProductData() {
     final product = widget.product!;
+    
+    // Debug logging to check product data
+    print('🔍 Loading product data:');
+    print('   Product ID: ${product.productId}');
+    print('   Title: ${product.title}');
+    print('   Brand: ${product.brandName}');
+    print('   Price: ${product.price}');
+    print('   Discount Price: ${product.priceAfetDiscount}');
+    print('   Stock: ${product.stockQuantity}');
+    print('   Max Order: ${product.maxOrderQuantity}');
+    print('   Images: ${product.images}');
+    print('   Out of Stock: ${product.isOutOfStock}');
+    
     _titleController.text = product.title;
     _brandController.text = product.brandName;
     _priceController.text = product.price.toString();
@@ -59,6 +78,14 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     _maxOrderController.text = product.maxOrderQuantity.toString();
     _selectedImages = List.from(product.images);
     _isOutOfStock = product.isOutOfStock;
+    
+    print('✅ Form fields populated:');
+    print('   Title field: ${_titleController.text}');
+    print('   Brand field: ${_brandController.text}');
+    print('   Price field: ${_priceController.text}');
+    print('   Discount field: ${_discountPriceController.text}');
+    print('   Stock field: ${_stockController.text}');
+    print('   Max Order field: ${_maxOrderController.text}');
   }
 
   Future<void> _pickImages() async {
@@ -118,6 +145,72 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     });
   }
 
+  void _addImageUrl() {
+    if (_imageUrlController.text.trim().isNotEmpty) {
+      setState(() {
+        _selectedImages.add(_imageUrlController.text.trim());
+        _imageUrlController.clear();
+      });
+    }
+  }
+
+  Future<void> _uploadImagesToCloudinary() async {
+    if (_newImageFiles.isEmpty) {
+      print('📷 No new images to upload');
+      return;
+    }
+
+    setState(() => _isUploadingImages = true);
+
+    try {
+      print('☁️ Image upload temporarily disabled for debugging...');
+      
+      // Temporarily convert local paths to placeholder URLs
+      for (int i = 0; i < _newImageFiles.length; i++) {
+        final file = _newImageFiles[i];
+        final localPath = file.path;
+        
+        // Use placeholder URL for now
+        final placeholderUrl = 'https://via.placeholder.com/400x400/CCCCCC/FFFFFF?text=Image+${i + 1}';
+        
+        setState(() {
+          final index = _selectedImages.indexOf(localPath);
+          if (index != -1) {
+            _selectedImages[index] = placeholderUrl;
+          } else {
+            _selectedImages.add(placeholderUrl);
+          }
+        });
+
+        print('✅ Image ${i + 1} converted to placeholder: $placeholderUrl');
+      }
+
+      // Clear the local files
+      _newImageFiles.clear();
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Images converted to placeholders (Cloudinary temporarily disabled)'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+    } catch (e) {
+      print('❌ Error in upload simulation: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: errorColor,
+          ),
+        );
+      }
+    } finally {
+      setState(() => _isUploadingImages = false);
+    }
+  }
+
   Future<void> _saveProduct() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
@@ -135,15 +228,27 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
           throw Exception('Direct admin authentication required. Please log in again.');
         }
 
-        // Create product data matching EXACT Postman format
+        // Convert any remaining local images to placeholders before saving
+        if (_newImageFiles.isNotEmpty) {
+          print('📤 Converting remaining local images to placeholders...');
+          await _uploadImagesToCloudinary(); // This now converts to placeholders
+        }
+
+        // Create product data with image URLs (placeholders or real URLs)
         Map<String, dynamic> productData = {
           'name': _titleController.text.trim(),
           'description': _brandController.text.trim(),
           'category': 'Other',
           'price': double.parse(_priceController.text),
           'stock': int.parse(_stockController.text),
-          'images': [],
+          'images': _selectedImages.isNotEmpty 
+              ? _selectedImages.where((img) => img.isNotEmpty).toList() // Filter out empty strings
+              : ['https://via.placeholder.com/400x400/CCCCCC/FFFFFF?text=No+Image'],
         };
+
+        print('🖼️ Final selected images: ${_selectedImages.length}');
+        print('🖼️ Uploaded images: ${_uploadedImages.length}');
+        print('🖼️ Images to send: ${productData['images']}');
 
         // Add optional fields
         if (_discountPriceController.text.isNotEmpty) {
@@ -590,49 +695,72 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
             ),
             itemCount: _selectedImages.length,
             itemBuilder: (context, index) {
-              return Stack(
-                children: [
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(color: Colors.grey.withOpacity(0.3)),
-                    ),
-                    child: ClipRRect(
+              return Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.grey.withOpacity(0.3)),
+                ),
+                child: Stack(
+                  fit: StackFit.expand,
+                  children: [
+                    ClipRRect(
                       borderRadius: BorderRadius.circular(8),
                       child: _selectedImages[index].startsWith('http')
                           ? Image.network(
                               _selectedImages[index],
                               fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: double.infinity,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey[200],
+                                  child: const Icon(
+                                    Icons.broken_image,
+                                    color: Colors.grey,
+                                  ),
+                                );
+                              },
+                              loadingBuilder: (context, child, loadingProgress) {
+                                if (loadingProgress == null) return child;
+                                return Container(
+                                  color: Colors.grey[200],
+                                  child: const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                );
+                              },
                             )
                           : Image.file(
                               File(_selectedImages[index]),
                               fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: double.infinity,
+                              errorBuilder: (context, error, stackTrace) {
+                                return Container(
+                                  color: Colors.grey[200],
+                                  child: const Icon(
+                                    Icons.broken_image,
+                                    color: Colors.grey,
+                                  ),
+                                );
+                              },
                             ),
                     ),
-                  ),
-                  // Remove button
-                  Positioned(
-                    top: 4,
-                    right: 4,
-                    child: GestureDetector(
-                      onTap: () => _removeImage(index),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: const BoxDecoration(
-                          color: errorColor,
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 16,
+                    // Remove button
+                    Positioned(
+                      top: 4,
+                      right: 4,
+                      child: GestureDetector(
+                        onTap: () => _removeImage(index),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: const BoxDecoration(
+                            color: errorColor,
+                            shape: BoxShape.circle,
+                          ),
+                          child: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 16,
+                          ),
                         ),
                       ),
-                    ),
                   ),
                   // Main image indicator
                   if (index == 0)
@@ -655,7 +783,8 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                         ),
                       ),
                     ),
-                ],
+                  ],
+                ),
               );
             },
           ),
@@ -686,6 +815,67 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                   foregroundColor: primaryColor,
                   side: const BorderSide(color: primaryColor),
                 ),
+              ),
+            ),
+          ],
+        ),
+        
+        const SizedBox(height: defaultPadding / 2),
+        
+        // Upload to Cloudinary Button
+        if (_newImageFiles.isNotEmpty)
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _isUploadingImages ? null : _uploadImagesToCloudinary,
+              icon: _isUploadingImages 
+                  ? const SizedBox(
+                      width: 16,
+                      height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Icon(Icons.cloud_upload),
+              label: Text(
+                _isUploadingImages 
+                    ? 'Uploading to Cloudinary...' 
+                    : 'Upload ${_newImageFiles.length} images to Cloudinary',
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: successColor,
+                padding: const EdgeInsets.symmetric(vertical: 12),
+              ),
+            ),
+          ),
+        
+        const SizedBox(height: defaultPadding),
+        
+        // Manual Image URL Input
+        Row(
+          children: [
+            Expanded(
+              child: TextFormField(
+                controller: _imageUrlController,
+                decoration: const InputDecoration(
+                  labelText: 'Or add image URL',
+                  hintText: 'https://example.com/image.jpg',
+                  border: OutlineInputBorder(),
+                  prefixIcon: Icon(Icons.link),
+                ),
+                validator: (value) {
+                  if (value != null && value.isNotEmpty && !Uri.tryParse(value)!.isAbsolute) {
+                    return 'Please enter a valid URL';
+                  }
+                  return null;
+                },
+              ),
+            ),
+            const SizedBox(width: 8),
+            ElevatedButton.icon(
+              onPressed: _addImageUrl,
+              icon: const Icon(Icons.add),
+              label: const Text('Add URL'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: primaryColor,
               ),
             ),
           ],

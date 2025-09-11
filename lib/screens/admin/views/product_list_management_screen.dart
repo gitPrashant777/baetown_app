@@ -3,7 +3,7 @@ import 'package:flutter_svg/svg.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/models/product_model.dart';
 import 'package:shop/screens/admin/views/components/inventory_product_card.dart';
-import 'package:shop/screens/admin/views/product_management_screen.dart';
+import 'package:shop/screens/admin/views/product_management_screen_with_cloudinary.dart';
 import 'package:shop/services/products_api_service.dart';
 
 class ProductListManagementScreen extends StatefulWidget {
@@ -27,14 +27,22 @@ class _ProductListManagementScreenState extends State<ProductListManagementScree
   }
 
   Future<void> _loadProducts() async {
+    print('🔄 Loading products from API...');
     setState(() => _isLoading = true);
     try {
       final loadedProducts = await _productsApiService.getAllProducts();
+      print('📦 Products loaded: ${loadedProducts.length}');
+      for (int i = 0; i < loadedProducts.length && i < 3; i++) {
+        final product = loadedProducts[i];
+        print('   Product $i: ${product.title} (ID: ${product.productId})');
+      }
       setState(() {
         products = loadedProducts;
         _isLoading = false;
       });
+      print('✅ Products updated in UI: ${products.length}');
     } catch (e) {
+      print('❌ Error loading products: $e');
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -61,7 +69,7 @@ class _ProductListManagementScreenState extends State<ProductListManagementScree
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ProductManagementScreen(
+        builder: (context) => ProductManagementScreenWithCloudinary(
           onProductSaved: (product) {
             _loadProducts(); // Reload products from API
           },
@@ -74,7 +82,7 @@ class _ProductListManagementScreenState extends State<ProductListManagementScree
     Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (context) => ProductManagementScreen(
+        builder: (context) => ProductManagementScreenWithCloudinary(
           product: product,
           onProductSaved: (updatedProduct) {
             _loadProducts(); // Reload products from API

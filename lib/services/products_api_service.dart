@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'dart:math' as math;
 import 'package:http/http.dart' as http;
 import 'package:shop/models/product_model.dart';
 import 'package:shop/models/user_session.dart';
@@ -164,25 +165,84 @@ class ProductsApiService {
     }
   }
 
-  // Get all products
+  // Get all products (handles pagination automatically)
   Future<List<ProductModel>> getAllProducts() async {
     try {
-      final url = Uri.parse('$baseUrl/products');
+      // First, get the first page to see pagination info
+      final url = Uri.parse('$baseUrl/products?limit=100'); // Request up to 100 products
+      print('🌐 GET $url (requesting all products)');
       final response = await http.get(url);
+      print('📡 Response: ${response.statusCode}');
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
+        print('📦 Raw API response structure: ${data.keys.toList()}');
+        
+        // Check pagination info
+        final totalProducts = data['productCount'] ?? 0;
+        final currentPage = data['currentPage'] ?? 1;
+        final totalPages = data['totalPages'] ?? 1;
+        final resultsPerPage = data['resultsPerPage'] ?? 8;
+        
+        print('📊 Pagination Info:');
+        print('   Total Products: $totalProducts');
+        print('   Current Page: $currentPage');
+        print('   Total Pages: $totalPages');
+        print('   Results Per Page: $resultsPerPage');
+        
         final productsData = data['products'] ?? data;
+        print('📋 Products array type: ${productsData.runtimeType}');
         
         if (productsData is List) {
-          return productsData.map((item) => ProductModel.fromJson(item)).toList();
+          print('📊 Products in this response: ${productsData.length}');
+          
+          List<ProductModel> allProducts = [];
+          
+          // Add products from first page
+          allProducts.addAll(productsData.map((item) {
+            print('🔍 Processing product: ${item['name'] ?? item['title'] ?? 'Unknown'}');
+            return ProductModel.fromApi(item);
+          }).toList());
+          
+          // If there are more pages, fetch them
+          if (totalPages > 1) {
+            print('📄 Fetching remaining ${totalPages - 1} pages...');
+            
+            for (int page = 2; page <= totalPages; page++) {
+              try {
+                final pageUrl = Uri.parse('$baseUrl/products?page=$page&limit=100');
+                print('🌐 GET $pageUrl (page $page)');
+                final pageResponse = await http.get(pageUrl);
+                
+                if (pageResponse.statusCode == 200) {
+                  final pageData = jsonDecode(pageResponse.body);
+                  final pageProducts = pageData['products'] ?? [];
+                  
+                  if (pageProducts is List) {
+                    print('📦 Page $page: ${pageProducts.length} products');
+                    allProducts.addAll(pageProducts.map((item) => ProductModel.fromApi(item)).toList());
+                  }
+                } else {
+                  print('❌ Failed to fetch page $page: ${pageResponse.statusCode}');
+                }
+              } catch (e) {
+                print('❌ Error fetching page $page: $e');
+              }
+            }
+          }
+          
+          print('✅ Total products loaded: ${allProducts.length}/$totalProducts');
+          return allProducts;
         } else {
+          print('❌ Products data is not a list: $productsData');
           return [];
         }
       } else {
+        print('❌ API Error: ${response.statusCode} - ${response.body}');
         return [];
       }
     } catch (e) {
+      print('❌ Exception in getAllProducts: $e');
       log('Error fetching products: $e');
       return [];
     }
