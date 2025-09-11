@@ -5,6 +5,8 @@ class ProductModel {
   final String image; // Keep for backward compatibility
   final List<String> images; // New field for multiple images
   final String brandName, title;
+  final String? description;
+  final String? category;
   final double price;
   final double? priceAfetDiscount;
   final int? dicountpercent;
@@ -12,12 +14,21 @@ class ProductModel {
   final int maxOrderQuantity;
   final bool isOutOfStock;
   final String? productId;
+  
+  // New product flags
+  final bool? isOnSale;
+  final bool? isPopular;
+  final bool? isBestSeller;
+  final bool? isFlashSale;
+  final DateTime? flashSaleEnd;
 
   ProductModel({
     required this.image,
     List<String>? images, // Optional for backward compatibility
     required this.brandName,
     required this.title,
+    this.description,
+    this.category,
     required this.price,
     this.priceAfetDiscount,
     this.dicountpercent,
@@ -25,6 +36,13 @@ class ProductModel {
     this.maxOrderQuantity = 5,
     this.isOutOfStock = false,
     this.productId,
+    
+    // New product flags
+    this.isOnSale,
+    this.isPopular,
+    this.isBestSeller,
+    this.isFlashSale,
+    this.flashSaleEnd,
   }) : images = images ?? [image]; // Use provided images or create list with single image
 
   ProductModel copyWith({
@@ -32,6 +50,8 @@ class ProductModel {
     List<String>? images,
     String? brandName,
     String? title,
+    String? description,
+    String? category,
     double? price,
     double? priceAfetDiscount,
     int? dicountpercent,
@@ -39,12 +59,21 @@ class ProductModel {
     int? maxOrderQuantity,
     bool? isOutOfStock,
     String? productId,
+    
+    // New product flags
+    bool? isOnSale,
+    bool? isPopular,
+    bool? isBestSeller,
+    bool? isFlashSale,
+    DateTime? flashSaleEnd,
   }) {
     return ProductModel(
       image: image ?? this.image,
       images: images ?? this.images,
       brandName: brandName ?? this.brandName,
       title: title ?? this.title,
+      description: description ?? this.description,
+      category: category ?? this.category,
       price: price ?? this.price,
       priceAfetDiscount: priceAfetDiscount ?? this.priceAfetDiscount,
       dicountpercent: dicountpercent ?? this.dicountpercent,
@@ -52,6 +81,13 @@ class ProductModel {
       maxOrderQuantity: maxOrderQuantity ?? this.maxOrderQuantity,
       isOutOfStock: isOutOfStock ?? this.isOutOfStock,
       productId: productId ?? this.productId,
+      
+      // New product flags
+      isOnSale: isOnSale ?? this.isOnSale,
+      isPopular: isPopular ?? this.isPopular,
+      isBestSeller: isBestSeller ?? this.isBestSeller,
+      isFlashSale: isFlashSale ?? this.isFlashSale,
+      flashSaleEnd: flashSaleEnd ?? this.flashSaleEnd,
     );
   }
 
@@ -108,14 +144,25 @@ class ProductModel {
       productId: json['id']?.toString() ?? json['_id']?.toString(),
       title: json['title'] ?? json['name'] ?? '',
       brandName: json['brand'] ?? json['brandName'] ?? 'BAETOWN',
+      description: json['description']?.toString(),
+      category: json['category']?.toString(),
       price: (json['price'] ?? 0).toDouble(),
-      priceAfetDiscount: json['discountPrice']?.toDouble() ?? json['priceAfterDiscount']?.toDouble(),
-      dicountpercent: json['discountPercent']?.toInt() ?? json['discountpercent']?.toInt(),
+      priceAfetDiscount: json['discountPrice']?.toDouble() ?? json['priceAfterDiscount']?.toDouble() ?? json['salePrice']?.toDouble(),
+      dicountpercent: json['discountPercent']?.toInt() ?? json['discountpercent']?.toInt() ?? json['discount']?.toInt(),
       stockQuantity: json['stock'] ?? json['stockQuantity'] ?? 0,
       maxOrderQuantity: json['maxOrderQuantity'] ?? 5,
       isOutOfStock: json['isOutOfStock'] ?? (json['stock'] ?? 0) <= 0,
       image: imagesList.isNotEmpty ? imagesList.first : '',
       images: imagesList,
+      
+      // New product flags
+      isOnSale: json['isOnSale'],
+      isPopular: json['isPopular'],
+      isBestSeller: json['isBestSeller'],
+      isFlashSale: json['isFlashSale'],
+      flashSaleEnd: json['flashSaleEnd'] != null 
+          ? DateTime.tryParse(json['flashSaleEnd'].toString())
+          : null,
     );
   }
 
@@ -161,6 +208,8 @@ class ProductModel {
       productId: json['id'],
       title: json['title'] ?? '',
       brandName: json['brandName'] ?? 'BAETOWN',
+      description: json['description'],
+      category: json['category'],
       price: (json['price'] ?? 0).toDouble(),
       priceAfetDiscount: json['priceAfetDiscount']?.toDouble(),
       dicountpercent: json['dicountpercent']?.toInt(),
@@ -171,6 +220,15 @@ class ProductModel {
       images: json['images'] != null 
           ? List<String>.from(json['images'])
           : [json['image'] ?? ''],
+      
+      // New product flags
+      isOnSale: json['isOnSale'],
+      isPopular: json['isPopular'],
+      isBestSeller: json['isBestSeller'],
+      isFlashSale: json['isFlashSale'],
+      flashSaleEnd: json['flashSaleEnd'] != null 
+          ? DateTime.tryParse(json['flashSaleEnd'].toString())
+          : null,
     );
   }
 }
