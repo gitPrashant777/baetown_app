@@ -3,21 +3,22 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:shop/components/cart_button.dart';
 import 'package:shop/components/custom_modal_bottom_sheet.dart';
 import 'package:shop/components/network_image_with_loader.dart';
+import 'package:shop/constants.dart';
+import 'package:shop/models/product_model.dart';
 import 'package:shop/screens/product/views/added_to_cart_message_screen.dart';
 import 'package:shop/screens/product/views/components/product_list_tile.dart';
 import 'package:shop/screens/product/views/location_permission_store_availability_screen.dart';
 import 'package:shop/screens/product/views/size_guide_screen.dart';
 import 'package:shop/services/cart_service.dart';
-import 'package:shop/models/product_model.dart';
-
-import '../../../constants.dart';
 import 'components/product_quantity.dart';
 import 'components/selected_colors.dart';
 import 'components/selected_size.dart';
 import 'components/unit_price.dart';
 
 class ProductBuyNowScreen extends StatefulWidget {
-  const ProductBuyNowScreen({super.key});
+  const ProductBuyNowScreen({super.key, required this.product});
+
+  final ProductModel product;
 
   @override
   _ProductBuyNowScreenState createState() => _ProductBuyNowScreenState();
@@ -36,18 +37,14 @@ class _ProductBuyNowScreenState extends State<ProductBuyNowScreen> {
     const Color(0xFFC482DB),
   ];
   
-  // For demo purposes, using a sample product. In real app, this would be passed from previous screen
+  // Use the product passed from the details screen
   late ProductModel currentProduct;
   
   @override
   void initState() {
     super.initState();
-    // Sample product for demo - in real app this would come from navigation arguments
-    currentProduct = demoPopularProducts.first.copyWith(
-      title: "Elegant Pearl Necklace",
-      price: 145.0,
-      priceAfetDiscount: 134.7,
-    );
+    // Use the actual product passed from the previous screen
+    currentProduct = widget.product;
   }
   
   double get totalPrice => (currentProduct.priceAfetDiscount ?? currentProduct.price) * quantity;
@@ -109,16 +106,61 @@ class _ProductBuyNowScreenState extends State<ProductBuyNowScreen> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(
-                          child: UnitPrice(
-                            price: currentProduct.price,
-                            priceAfterDiscount: currentProduct.priceAfetDiscount,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              UnitPrice(
+                                price: currentProduct.price,
+                                priceAfterDiscount: currentProduct.priceAfetDiscount,
+                              ),
+                              const SizedBox(height: defaultPadding / 2),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: defaultPadding / 2,
+                                  vertical: defaultPadding / 4,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: currentProduct.stockQuantity > 10 
+                                      ? Colors.green.withOpacity(0.1)
+                                      : currentProduct.stockQuantity > 0
+                                          ? Colors.orange.withOpacity(0.1)
+                                          : Colors.red.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(
+                                    color: currentProduct.stockQuantity > 10 
+                                        ? Colors.green
+                                        : currentProduct.stockQuantity > 0
+                                            ? Colors.orange
+                                            : Colors.red,
+                                    width: 1,
+                                  ),
+                                ),
+                                child: Text(
+                                  currentProduct.stockQuantity > 0 
+                                      ? "Available: ${currentProduct.stockQuantity} units"
+                                      : "Out of Stock",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: currentProduct.stockQuantity > 10 
+                                        ? Colors.green
+                                        : currentProduct.stockQuantity > 0
+                                            ? Colors.orange
+                                            : Colors.red,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         ProductQuantity(
                           numOfItem: quantity,
                           onIncrement: () {
                             setState(() {
-                              quantity++;
+                              if (quantity < currentProduct.stockQuantity && 
+                                  quantity < currentProduct.maxOrderQuantity) {
+                                quantity++;
+                              }
                             });
                           },
                           onDecrement: () {

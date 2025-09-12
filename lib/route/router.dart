@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shop/entry_point.dart';
 import 'package:shop/screens/auth/views/terms_of_services_screen.dart';
+import 'package:shop/models/product_model.dart';
 
 import 'screen_export.dart';
 
@@ -73,8 +74,28 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case productDetailsScreenRoute:
       return MaterialPageRoute(
         builder: (context) {
-          bool isProductAvailable = settings.arguments as bool? ?? true;
-          return ProductDetailsScreen(isProductAvailable: isProductAvailable);
+          final arguments = settings.arguments;
+          
+          // Handle different argument types for backwards compatibility
+          if (arguments is ProductModel) {
+            // New approach: ProductModel passed directly
+            return ProductDetailsScreen(product: arguments);
+          } else {
+            // Default case - create a demo product
+            return ProductDetailsScreen(product: ProductModel(
+              productId: "default",
+              title: "Sample Product",
+              brandName: "BAETOWN",
+              description: "Sample product description",
+              category: "Default",
+              price: 99.99,
+              stockQuantity: 10,
+              maxOrderQuantity: 5,
+              isOutOfStock: false,
+              image: "https://via.placeholder.com/300",
+              images: ["https://via.placeholder.com/300"],
+            ));
+          }
         },
       );
     case productReviewsScreenRoute:

@@ -95,7 +95,7 @@ class InventoryProductCard extends StatelessWidget {
                     
                     // Brand Name
                     Text(
-                      product.brandName,
+                      product.brandName ?? "BAETOWN",
                       style: TextStyle(
                         color: Theme.of(context).textTheme.bodyMedium?.color?.withOpacity(0.6),
                         fontSize: 14,

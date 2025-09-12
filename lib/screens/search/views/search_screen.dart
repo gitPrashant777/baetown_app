@@ -52,7 +52,7 @@ class _SearchScreenState extends State<SearchScreen> {
       // Filter products based on search query
       searchResults = demoPopularProducts.where((product) {
         return product.title.toLowerCase().contains(query.toLowerCase()) ||
-               product.brandName.toLowerCase().contains(query.toLowerCase());
+               (product.brandName?.toLowerCase().contains(query.toLowerCase()) ?? false);
       }).toList();
     });
 
@@ -213,7 +213,7 @@ class _SearchScreenState extends State<SearchScreen> {
             itemBuilder: (context, index) {
               return ProductCard(
                 image: searchResults[index].image,
-                brandName: searchResults[index].brandName,
+                brandName: searchResults[index].brandName ?? "BAETOWN",
                 title: searchResults[index].title,
                 price: searchResults[index].price,
                 priceAfetDiscount: searchResults[index].priceAfetDiscount,

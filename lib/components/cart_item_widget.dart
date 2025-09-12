@@ -61,7 +61,7 @@ class CartItemWidget extends StatelessWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  cartItem.product.brandName.toUpperCase(),
+                  cartItem.product.brandName?.toUpperCase() ?? "UNKNOWN",
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey[600],
                   ),

@@ -1,19 +1,17 @@
-// For demo only
-import 'package:shop/constants.dart';
-
 class ProductModel {
-  final String image; // Keep for backward compatibility
-  final List<String> images; // New field for multiple images
-  final String brandName, title;
-  final String? description;
-  final String? category;
+  final String? productId;
+  final String title;
+  final String? brandName;
+  final String description;
+  final String category;
   final double price;
   final double? priceAfetDiscount;
   final int? dicountpercent;
   final int stockQuantity;
   final int maxOrderQuantity;
   final bool isOutOfStock;
-  final String? productId;
+  final String image;
+  final List<String> images;
   
   // New product flags
   final bool? isOnSale;
@@ -23,166 +21,88 @@ class ProductModel {
   final DateTime? flashSaleEnd;
 
   ProductModel({
-    required this.image,
-    List<String>? images, // Optional for backward compatibility
-    required this.brandName,
+    this.productId,
     required this.title,
-    this.description,
-    this.category,
+    this.brandName,
+    required this.description,
+    required this.category,
     required this.price,
     this.priceAfetDiscount,
     this.dicountpercent,
-    this.stockQuantity = 20,
-    this.maxOrderQuantity = 5,
-    this.isOutOfStock = false,
-    this.productId,
-    
-    // New product flags
+    required this.stockQuantity,
+    required this.maxOrderQuantity,
+    required this.isOutOfStock,
+    required this.image,
+    required this.images,
     this.isOnSale,
     this.isPopular,
     this.isBestSeller,
     this.isFlashSale,
     this.flashSaleEnd,
-  }) : images = images ?? [image]; // Use provided images or create list with single image
+  });
 
-  ProductModel copyWith({
-    String? image,
-    List<String>? images,
-    String? brandName,
-    String? title,
-    String? description,
-    String? category,
-    double? price,
-    double? priceAfetDiscount,
-    int? dicountpercent,
-    int? stockQuantity,
-    int? maxOrderQuantity,
-    bool? isOutOfStock,
-    String? productId,
-    
-    // New product flags
-    bool? isOnSale,
-    bool? isPopular,
-    bool? isBestSeller,
-    bool? isFlashSale,
-    DateTime? flashSaleEnd,
-  }) {
-    return ProductModel(
-      image: image ?? this.image,
-      images: images ?? this.images,
-      brandName: brandName ?? this.brandName,
-      title: title ?? this.title,
-      description: description ?? this.description,
-      category: category ?? this.category,
-      price: price ?? this.price,
-      priceAfetDiscount: priceAfetDiscount ?? this.priceAfetDiscount,
-      dicountpercent: dicountpercent ?? this.dicountpercent,
-      stockQuantity: stockQuantity ?? this.stockQuantity,
-      maxOrderQuantity: maxOrderQuantity ?? this.maxOrderQuantity,
-      isOutOfStock: isOutOfStock ?? this.isOutOfStock,
-      productId: productId ?? this.productId,
-      
-      // New product flags
-      isOnSale: isOnSale ?? this.isOnSale,
-      isPopular: isPopular ?? this.isPopular,
-      isBestSeller: isBestSeller ?? this.isBestSeller,
-      isFlashSale: isFlashSale ?? this.isFlashSale,
-      flashSaleEnd: flashSaleEnd ?? this.flashSaleEnd,
-    );
-  }
-
-  int getMaxAllowedQuantity() {
-    if (isOutOfStock || stockQuantity <= 0) return 0;
-    return stockQuantity < maxOrderQuantity ? stockQuantity : maxOrderQuantity;
-  }
-
-  // Convert from API JSON response
+  // Create from API response (backend data)
   factory ProductModel.fromApi(Map<String, dynamic> json) {
-    // Safely extract images array, handling various data structures
-    List<String> extractImages(dynamic imageData) {
+    print('🔍 ProductModel.fromApi input: $json');
+    
+    // Extract images from backend response
+    List<String> extractImages(dynamic imagesData) {
       try {
-        if (imageData == null) {
-          return [json['image']?.toString() ?? ''];
+        if (imagesData is List) {
+          return imagesData
+              .map((img) => img is Map<String, dynamic> 
+                  ? (img['url'] ?? img['src'] ?? img.toString())
+                  : img.toString())
+              .where((url) => url.isNotEmpty)
+              .cast<String>()
+              .toList();
         }
-        
-        if (imageData is List) {
-          // Handle list of images - could be strings or objects
-          return imageData.map((item) {
-            if (item is String) {
-              return item;
-            } else if (item is Map<String, dynamic>) {
-              // Handle image objects with url property
-              return item['url']?.toString() ?? item['src']?.toString() ?? '';
-            }
-            return item.toString();
-          }).where((url) => url.isNotEmpty).toList();
-        }
-        
-        if (imageData is String) {
-          return [imageData];
-        }
-        
-        // If it's an object, try to extract URL
-        if (imageData is Map<String, dynamic>) {
-          final url = imageData['url']?.toString() ?? imageData['src']?.toString();
-          if (url != null && url.isNotEmpty) {
-            return [url];
-          }
-        }
-        
-        // Fallback to single image from json['image']
-        return [json['image']?.toString() ?? ''];
+        return [];
       } catch (e) {
-        print('⚠️ Error processing images for product ${json['name'] ?? 'unknown'}: $e');
-        return [json['image']?.toString() ?? ''];
+        print('⚠️ Error processing images: $e');
+        return [];
       }
     }
     
     final imagesList = extractImages(json['images']);
     
-    return ProductModel(
-      productId: json['id']?.toString() ?? json['_id']?.toString(),
-      title: json['title'] ?? json['name'] ?? '',
-      brandName: json['brand'] ?? json['brandName'] ?? 'BAETOWN',
-      description: json['description']?.toString(),
-      category: json['category']?.toString(),
+    final result = ProductModel(
+      productId: json['_id']?.toString() ?? json['id']?.toString() ?? '',
+      title: json['name'] ?? json['title'] ?? 'Unknown Product',
+      brandName: json['category'] ?? json['brand'] ?? json['brandName'] ?? 'BAETOWN',
+      description: json['description']?.toString() ?? '',
+      category: json['category']?.toString() ?? '',
       price: (json['price'] ?? 0).toDouble(),
-      priceAfetDiscount: json['discountPrice']?.toDouble() ?? json['priceAfterDiscount']?.toDouble() ?? json['salePrice']?.toDouble(),
-      dicountpercent: json['discountPercent']?.toInt() ?? json['discountpercent']?.toInt() ?? json['discount']?.toInt(),
+      priceAfetDiscount: json['salePrice']?.toDouble() ?? json['discountPrice']?.toDouble(),
+      dicountpercent: json['discount']?.toInt() ?? json['discountPercent']?.toInt(),
       stockQuantity: json['stock'] ?? json['stockQuantity'] ?? 0,
       maxOrderQuantity: json['maxOrderQuantity'] ?? 5,
       isOutOfStock: json['isOutOfStock'] ?? (json['stock'] ?? 0) <= 0,
       image: imagesList.isNotEmpty ? imagesList.first : '',
       images: imagesList,
-      
-      // New product flags
-      isOnSale: json['isOnSale'],
-      isPopular: json['isPopular'],
-      isBestSeller: json['isBestSeller'],
-      isFlashSale: json['isFlashSale'],
+      isOnSale: json['isOnSale'] ?? false,
+      isPopular: json['isPopular'] ?? false,
+      isBestSeller: json['isBestSeller'] ?? false,
+      isFlashSale: json['isFlashSale'] ?? false,
       flashSaleEnd: json['flashSaleEnd'] != null 
           ? DateTime.tryParse(json['flashSaleEnd'].toString())
           : null,
     );
+    
+    print('🔍 ProductModel.fromApi result - ID: ${result.productId}, Title: ${result.title}, Images: ${result.images.length}');
+    return result;
   }
 
   // Convert to API JSON for sending
   Map<String, dynamic> toApiJson() {
-    // Sanitize strings to prevent encoding issues
-    String sanitizeString(String input) {
-      return input.trim().replaceAll(RegExp(r'[^\w\s.-]'), '');
-    }
-    
-    final result = {
-      'name': sanitizeString(title), // Backend expects 'name', not 'title'
-      'description': sanitizeString(title), // Use title as description for now
-      'category': 'Electronics', // Use default category instead of brandName
+    return {
+      'name': title,
+      'description': description,
+      'category': category,
       'price': price,
-      'stock': stockQuantity, // Backend expects 'stock'
-      'images': [], // Include empty images array to match Postman exactly
+      'stock': stockQuantity,
+      'images': [],
     };
-    print('🔍 toApiJson() returning: $result');
-    return result;
   }
 
   // Convert to JSON for local storage
@@ -191,6 +111,8 @@ class ProductModel {
       'id': productId,
       'title': title,
       'brandName': brandName,
+      'description': description,
+      'category': category,
       'price': price,
       'priceAfetDiscount': priceAfetDiscount,
       'dicountpercent': dicountpercent,
@@ -199,6 +121,11 @@ class ProductModel {
       'isOutOfStock': isOutOfStock,
       'image': image,
       'images': images,
+      'isOnSale': isOnSale,
+      'isPopular': isPopular,
+      'isBestSeller': isBestSeller,
+      'isFlashSale': isFlashSale,
+      'flashSaleEnd': flashSaleEnd?.toIso8601String(),
     };
   }
 
@@ -208,8 +135,8 @@ class ProductModel {
       productId: json['id'],
       title: json['title'] ?? '',
       brandName: json['brandName'] ?? 'BAETOWN',
-      description: json['description'],
-      category: json['category'],
+      description: json['description'] ?? '',
+      category: json['category'] ?? '',
       price: (json['price'] ?? 0).toDouble(),
       priceAfetDiscount: json['priceAfetDiscount']?.toDouble(),
       dicountpercent: json['dicountpercent']?.toInt(),
@@ -220,8 +147,6 @@ class ProductModel {
       images: json['images'] != null 
           ? List<String>.from(json['images'])
           : [json['image'] ?? ''],
-      
-      // New product flags
       isOnSale: json['isOnSale'],
       isPopular: json['isPopular'],
       isBestSeller: json['isBestSeller'],
@@ -231,160 +156,51 @@ class ProductModel {
           : null,
     );
   }
-}
 
-List<ProductModel> demoPopularProducts = [
-  ProductModel(
-    image: productDemoImg1,
-    title: "Diamond Solitaire Ring",
-    brandName: "BAETOWN",
-    price: 210820, // 2540 * 83
-    priceAfetDiscount: 182600, // 2200 * 83
-    dicountpercent: 13,
-    stockQuantity: 15,
-    maxOrderQuantity: 3,
-    productId: "ring_001",
-  ),
-  ProductModel(
-    image: productDemoImg4,
-    title: "Gold Tennis Bracelet",
-    brandName: "BAETOWN",
-    price: 149400, // 1800 * 83
-    stockQuantity: 8,
-    maxOrderQuantity: 2,
-    productId: "bracelet_001",
-  ),
-  ProductModel(
-    image: productDemoImg5,
-    title: "Pearl Drop Earrings",
-    brandName: "BAETOWN",
-    price: 54001, // 650.62 * 83
-    priceAfetDiscount: 43202, // 520.50 * 83
-    dicountpercent: 20,
-    stockQuantity: 3,
-    maxOrderQuantity: 5,
-    productId: "earring_001",
-  ),
-  ProductModel(
-    image: productDemoImg6,
-    title: "Emerald Pendant Necklace",
-    brandName: "BAETOWN",
-    price: 104912, // 1264 * 83
-    priceAfetDiscount: 91366, // 1100.8 * 83
-    dicountpercent: 13,
-    stockQuantity: 0,
-    maxOrderQuantity: 4,
-    isOutOfStock: true,
-    productId: "necklace_001",
-  ),
-  ProductModel(
-    image: productDemoImg3,
-    title: "Ruby Stud Earrings",
-    brandName: "BAETOWN",
-    price: 54001, // 650.62 * 83
-    priceAfetDiscount: 43202, // 520.50 * 83
-    dicountpercent: 20,
-  ),
-  ProductModel(
-    image: productDemoImg2,
-    title: "Silver Chain Bracelet",
-    brandName: "BAETOWN",
-    price: 104912, // 1264 * 83
-    priceAfetDiscount: 91366, // 1100.8 * 83
-    dicountpercent: 13,
-  ),
-];
-List<ProductModel> demoFlashSaleProducts = [
-  ProductModel(
-    image: productDemoImg5,
-    title: "Diamond Stud Earrings",
-    brandName: "BAETOWN",
-    price: 54001, // 650.62 * 83
-    priceAfetDiscount: 43202, // 520.50 * 83
-    dicountpercent: 20,
-  ),
-  ProductModel(
-    image: productDemoImg6,
-    title: "Gold Charm Bracelet",
-    brandName: "BAETOWN",
-    price: 104912, // 1264 * 83
-    priceAfetDiscount: 91366, // 1100.8 * 83
-    dicountpercent: 13,
-  ),
-  ProductModel(
-    image: productDemoImg4,
-    title: "Sapphire Cocktail Ring",
-    brandName: "BAETOWN",
-    price: 66400, // 800 * 83
-    priceAfetDiscount: 56440, // 680 * 83
-    dicountpercent: 15,
-  ),
-];
-List<ProductModel> demoBestSellersProducts = [
-  ProductModel(
-    image: productDemoImg1,
-    title: "Vintage Pearl Necklace",
-    brandName: "BAETOWN",
-    price: 54001, // 650.62 * 83
-    priceAfetDiscount: 43202, // 520.50 * 83
-    dicountpercent: 20,
-  ),
-  ProductModel(
-    image: productDemoImg2,
-    title: "Rose Gold Hoop Earrings",
-    brandName: "BAETOWN",
-    price: 104912, // 1264 * 83
-    priceAfetDiscount: 91366, // 1100.8 * 83
-    dicountpercent: 13,
-  ),
-  ProductModel(
-    image: productDemoImg4,
-    title: "Crystal Tennis Bracelet",
-    brandName: "BAETOWN",
-    price: 66400, // 800 * 83
-    priceAfetDiscount: 56440, // 680 * 83
-    dicountpercent: 15,
-  ),
-];
-List<ProductModel> kidsProducts = [
-  ProductModel(
-    image: productDemoImg5,
-    title: "Butterfly Pendant Necklace",
-    brandName: "BAETOWN Kids",
-    price: 12501, // 150.62 * 83
-    priceAfetDiscount: 10002, // 120.50 * 83
-    dicountpercent: 20,
-  ),
-  ProductModel(
-    image: productDemoImg6,
-    title: "Colorful Bead Bracelet",
-    brandName: "BAETOWN Kids",
-    price: 7470, // 89.99 * 83
-  ),
-  ProductModel(
-    image: productDemoImg3,
-    title: "Heart Stud Earrings",
-    brandName: "BAETOWN Kids",
-    price: 6225, // 75.00 * 83
-  ),
-  ProductModel(
-    image: productDemoImg4,
-    title: "Rainbow Hair Clips Set",
-    brandName: "BAETOWN Kids",
-    price: 3735, // 45.00 * 83
-    priceAfetDiscount: 2988, // 36.00 * 83
-    dicountpercent: 20,
-  ),
-  ProductModel(
-    image: productDemoImg5,
-    title: "Unicorn Charm Bracelet",
-    brandName: "BAETOWN Kids",
-    price: 5395, // 65.00 * 83
-  ),
-  ProductModel(
-    image: productDemoImg1,
-    title: "Princess Tiara",
-    brandName: "BAETOWN Kids",
-    price: 10375, // 125.00 * 83
-  ),
-];
+  // Add missing methods
+  int getMaxAllowedQuantity() {
+    return maxOrderQuantity;
+  }
+
+  ProductModel copyWith({
+    String? productId,
+    String? title,
+    String? brandName,
+    String? description,
+    String? category,
+    double? price,
+    double? priceAfetDiscount,
+    int? dicountpercent,
+    int? stockQuantity,
+    int? maxOrderQuantity,
+    bool? isOutOfStock,
+    String? image,
+    List<String>? images,
+    bool? isOnSale,
+    bool? isPopular,
+    bool? isBestSeller,
+    bool? isFlashSale,
+    DateTime? flashSaleEnd,
+  }) {
+    return ProductModel(
+      productId: productId ?? this.productId,
+      title: title ?? this.title,
+      brandName: brandName ?? this.brandName,
+      description: description ?? this.description,
+      category: category ?? this.category,
+      price: price ?? this.price,
+      priceAfetDiscount: priceAfetDiscount ?? this.priceAfetDiscount,
+      dicountpercent: dicountpercent ?? this.dicountpercent,
+      stockQuantity: stockQuantity ?? this.stockQuantity,
+      maxOrderQuantity: maxOrderQuantity ?? this.maxOrderQuantity,
+      isOutOfStock: isOutOfStock ?? this.isOutOfStock,
+      image: image ?? this.image,
+      images: images ?? this.images,
+      isOnSale: isOnSale ?? this.isOnSale,
+      isPopular: isPopular ?? this.isPopular,
+      isBestSeller: isBestSeller ?? this.isBestSeller,
+      isFlashSale: isFlashSale ?? this.isFlashSale,
+      flashSaleEnd: flashSaleEnd ?? this.flashSaleEnd,
+    );
+  }
+}

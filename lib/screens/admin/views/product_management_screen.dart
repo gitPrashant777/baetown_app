@@ -71,7 +71,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     print('   Out of Stock: ${product.isOutOfStock}');
     
     _titleController.text = product.title;
-    _brandController.text = product.brandName;
+    _brandController.text = product.brandName ?? "BAETOWN";
     _priceController.text = product.price.toString();
     _discountPriceController.text = product.priceAfetDiscount?.toString() ?? '';
     _stockController.text = product.stockQuantity.toString();

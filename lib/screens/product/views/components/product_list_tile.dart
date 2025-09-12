@@ -6,13 +6,15 @@ class ProductListTile extends StatelessWidget {
     super.key,
     required this.svgSrc,
     required this.title,
+    this.subtitle,
     this.isShowBottomBorder = false,
-    required this.press,
+    this.press,
   });
 
   final String svgSrc, title;
+  final String? subtitle;
   final bool isShowBottomBorder;
-  final VoidCallback press;
+  final VoidCallback? press;
 
   @override
   Widget build(BuildContext context) {
@@ -29,6 +31,7 @@ class ProductListTile extends StatelessWidget {
               color: Theme.of(context).textTheme.bodyLarge!.color,
             ),
             title: Text(title),
+            subtitle: subtitle != null ? Text(subtitle!) : null,
             trailing: SvgPicture.asset(
               "assets/icons/miniRight.svg",
               color: Theme.of(context).textTheme.bodyMedium!.color,

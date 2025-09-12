@@ -5,6 +5,7 @@ import 'package:http/http.dart' as http;
 import 'package:shop/models/product_model.dart';
 import 'package:shop/models/user_session.dart';
 import 'package:shop/services/auth_api_service.dart';
+import 'package:shop/services/api_config.dart';
 
 class ProductsApiService {
   static const String baseUrl = 'https://mern-backend-t3h8.onrender.com/api/v1';
@@ -325,6 +326,46 @@ class ProductsApiService {
         'success': false,
         'message': 'Network error: $e'
       };
+    }
+  }
+
+  // Get single product by ID
+  Future<ProductModel?> getProductById(String productId) async {
+    try {
+      final url = Uri.parse('${ApiConfig.currentBaseUrl}${ApiConfig.productId.replaceAll('{id}', productId)}');
+      log('📡 Fetching product details from: $url');
+
+      final response = await http.get(
+        url,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      );
+
+      log('🔍 Product details response status: ${response.statusCode}');
+      log('📦 Product details response body: ${response.body}');
+
+      if (response.statusCode == 200) {
+        final jsonData = jsonDecode(response.body);
+        
+        // Handle different response structures
+        if (jsonData['success'] == true && jsonData['product'] != null) {
+          // Response format: { success: true, product: {...} }
+          return ProductModel.fromApi(jsonData['product']);
+        } else if (jsonData is Map<String, dynamic> && jsonData.containsKey('_id')) {
+          // Direct product object
+          return ProductModel.fromApi(jsonData);
+        } else {
+          log('❌ Unexpected response format for product details');
+          return null;
+        }
+      } else {
+        log('❌ Failed to fetch product details: ${response.statusCode} - ${response.body}');
+        return null;
+      }
+    } catch (e) {
+      log('❌ Error fetching product details: $e');
+      return null;
     }
   }
 }

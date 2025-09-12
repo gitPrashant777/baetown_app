@@ -29,7 +29,7 @@ class BookmarkScreen extends StatelessWidget {
                 (BuildContext context, int index) {
                   return ProductCard(
                     image: demoPopularProducts[index].image,
-                    brandName: demoPopularProducts[index].brandName,
+                    brandName: demoPopularProducts[index].brandName ?? "BAETOWN",
                     title: demoPopularProducts[index].title,
                     price: demoPopularProducts[index].price,
                     priceAfetDiscount:

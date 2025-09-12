@@ -6,9 +6,10 @@ import 'package:shop/components/free_delivery_banner.dart';
 import 'package:shop/components/product/product_card.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/screens/product/views/product_returns_screen.dart';
+import 'package:shop/route/route_constants.dart';
 import 'package:shop/services/cart_service.dart';
+import 'package:shop/services/products_api_service.dart';
 import 'package:shop/models/product_model.dart';
-
 import 'package:shop/route/screen_export.dart';
 
 import 'components/notify_me_card.dart';
@@ -18,139 +19,100 @@ import 'components/product_list_tile.dart';
 import '../../../components/review_card.dart';
 import 'product_buy_now_screen.dart';
 
-class ProductDetailsScreen extends StatelessWidget {
-  const ProductDetailsScreen({super.key, this.isProductAvailable = true});
+class ProductDetailsScreen extends StatefulWidget {
+  const ProductDetailsScreen({super.key, required this.product});
 
-  final bool isProductAvailable;
+  final ProductModel product;
+
+  @override
+  State<ProductDetailsScreen> createState() => _ProductDetailsScreenState();
+}
+
+class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
+  final ProductsApiService _productsApi = ProductsApiService();
+
+  @override
+  void initState() {
+    super.initState();
+    print('🔍 ProductDetailsScreen initialized with product: ${widget.product.productId}');
+    print('🔍 Product title: ${widget.product.title}');
+    print('🔍 Product images: ${widget.product.images}');
+    print('🔍 Product description: ${widget.product.description}');
+    print('🔍 Product stock: ${widget.product.stockQuantity}');
+  }
+
+  bool get isProductAvailable => !widget.product.isOutOfStock && widget.product.stockQuantity > 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: isProductAvailable
-          ? CartButton(
-              price: 140,
-              press: () {
-                customModalBottomSheet(
-                  context,
-                  height: MediaQuery.of(context).size.height * 0.92,
-                  child: const ProductBuyNowScreen(),
-                );
-              },
-            )
-          :
-
-          /// If profuct is not available then show [NotifyMeCard]
-          NotifyMeCard(
-              isNotify: false,
-              onChanged: (value) {},
-            ),
+      bottomNavigationBar: CartButton(
+        price: widget.product.priceAfetDiscount ?? widget.product.price,
+        press: () {
+          customModalBottomSheet(
+            context,
+            height: MediaQuery.of(context).size.height * 0.92,
+            child: ProductBuyNowScreen(product: widget.product),
+          );
+        },
+      ),
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            const SliverToBoxAdapter(child: FreeDeliveryBanner()),
             SliverAppBar(
               backgroundColor: Theme.of(context).scaffoldBackgroundColor,
               floating: true,
               actions: [
-                _WishlistIconButton(),
+                IconButton(
+                  onPressed: () {},
+                  icon: SvgPicture.asset("assets/icons/Bookmark.svg",
+                      colorFilter: ColorFilter.mode(
+                          Theme.of(context).textTheme.bodyLarge!.color!,
+                          BlendMode.srcIn)),
+                ),
               ],
             ),
-            const ProductImages(
-              images: [productDemoImg1, productDemoImg2, productDemoImg3],
+            ProductImages(
+              images: widget.product.images.isNotEmpty 
+                  ? widget.product.images // Use actual product images array
+                  : [productDemoImg1, productDemoImg2, productDemoImg3], // Fallback
             ),
             ProductInfo(
-              brand: "LIPSY LONDON",
-              title: "Sleeveless Ruffle",
+              brand: widget.product.brandName ?? "Unknown Brand",
+              title: widget.product.title ?? "Product Title",
               isAvailable: isProductAvailable,
-              description:
-                  "A cool gray cap in soft corduroy. Watch me.' By buying cotton products from Lindex, you’re supporting more responsibly...",
-              rating: 4.4,
-              numOfReviews: 126,
-            ),
-            ProductListTile(
-              svgSrc: "assets/icons/Product.svg",
-              title: "Product Details",
-              press: () {
-                customModalBottomSheet(
-                  context,
-                  height: MediaQuery.of(context).size.height * 0.92,
-                  child: const Scaffold(
-                    body: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.info_outline, size: 80, color: Colors.grey),
-                          SizedBox(height: 16),
-                          Text('Product Details', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                          SizedBox(height: 8),
-                          Text('Detailed product information', style: TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
+              description: widget.product.description ?? "No description available",
+              rating: 4.3,
+              numOfReviews: 125,
+              stockQuantity: widget.product.stockQuantity,
             ),
             ProductListTile(
               svgSrc: "assets/icons/Delivery.svg",
-              title: "Shipping Information",
-              press: () {
-                customModalBottomSheet(
-                  context,
-                  height: MediaQuery.of(context).size.height * 0.92,
-                  child: const Scaffold(
-                    body: Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.local_shipping_outlined, size: 80, color: Colors.grey),
-                          SizedBox(height: 16),
-                          Text('Shipping Information', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-                          SizedBox(height: 8),
-                          Text('Delivery details and shipping options', style: TextStyle(color: Colors.grey)),
-                        ],
-                      ),
-                    ),
-                  ),
-                );
-              },
+              title: "Free Delivery",
+              subtitle: "On orders over \$35.00",
             ),
-            ProductListTile(
-              svgSrc: "assets/icons/Return.svg",
-              title: "Returns",
-              isShowBottomBorder: true,
-              press: () {
-                customModalBottomSheet(
-                  context,
-                  height: MediaQuery.of(context).size.height * 0.92,
-                  child: const ProductReturnsScreen(),
-                );
-              },
-            ),
-            const SliverToBoxAdapter(
-              child: Padding(
-                padding: EdgeInsets.all(defaultPadding),
-                child: ReviewCard(
-                  rating: 4.3,
-                  numOfReviews: 128,
-                  numOfFiveStar: 80,
-                  numOfFourStar: 30,
-                  numOfThreeStar: 5,
-                  numOfTwoStar: 4,
-                  numOfOneStar: 1,
-                ),
+            if (isProductAvailable)
+              ProductListTile(
+                svgSrc: "assets/icons/Return.svg",
+                title: "Return policy",
+                subtitle: "99 days return period",
+                isShowBottomBorder: true,
+                press: () {
+                  // Navigate to returns screen when available
+                },
+              ),
+            const SliverToBoxAdapter(child: SizedBox(height: defaultPadding)),
+            if (!isProductAvailable)
+              SliverToBoxAdapter(child: NotifyMeCard(onChanged: (value) {})),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: defaultPadding),
+              sliver: SliverToBoxAdapter(
+                child: FreeDeliveryBanner(),
               ),
             ),
-            ProductListTile(
-              svgSrc: "assets/icons/Chat.svg",
-              title: "Reviews",
-              isShowBottomBorder: true,
-              press: () {
-                Navigator.pushNamed(context, productReviewsScreenRoute);
-              },
-            ),
+            const SliverToBoxAdapter(child: SizedBox(height: defaultPadding * 2)),
             SliverPadding(
-              padding: const EdgeInsets.all(defaultPadding),
+              padding: const EdgeInsets.symmetric(horizontal: defaultPadding),
               sliver: SliverToBoxAdapter(
                 child: Text(
                   "You may also like",
@@ -158,69 +120,110 @@ class ProductDetailsScreen extends StatelessWidget {
                 ),
               ),
             ),
+            const SliverToBoxAdapter(child: SizedBox(height: defaultPadding)),
             SliverToBoxAdapter(
-              child: SizedBox(
-                height: 220,
-                child: ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  itemCount: 5,
-                  itemBuilder: (context, index) => Padding(
-                    padding: EdgeInsets.only(
-                        left: defaultPadding,
-                        right: index == 4 ? defaultPadding : 0),
-                    child: ProductCard(
-                      image: productDemoImg2,
-                      title: "Diamond Stud Earrings",
-                      brandName: "BAETOWN",
-                      price: 2044, // 24.65 * 83
-                      priceAfetDiscount: index.isEven ? 1742 : null, // 20.99 * 83
-                      dicountpercent: index.isEven ? 25 : null,
-                      press: () {},
+              child: FutureBuilder<List<ProductModel>>(
+                future: _productsApi.getAllProducts(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasData) {
+                    // Show related products (excluding current product)
+                    final relatedProducts = snapshot.data!
+                        .where((p) => p.productId != widget.product.productId)
+                        .take(4)
+                        .toList();
+                    
+                    return SizedBox(
+                      height: 220,
+                      child: ListView.builder(
+                        scrollDirection: Axis.horizontal,
+                        itemCount: relatedProducts.length,
+                        itemBuilder: (context, index) => Padding(
+                          padding: EdgeInsets.only(
+                            left: defaultPadding,
+                            right: index == relatedProducts.length - 1 ? defaultPadding : 0,
+                          ),
+                          child: ProductCard(
+                            image: relatedProducts[index].image,
+                            brandName: relatedProducts[index].brandName ?? "BAETOWN",
+                            title: relatedProducts[index].title,
+                            price: relatedProducts[index].price,
+                            priceAfetDiscount: relatedProducts[index].priceAfetDiscount,
+                            dicountpercent: relatedProducts[index].dicountpercent,
+                            press: () {
+                              Navigator.pushNamed(
+                                context,
+                                productDetailsScreenRoute,
+                                arguments: relatedProducts[index],
+                              );
+                            },
+                          ),
+                        ),
+                      ),
+                    );
+                  }
+                  return const Center(child: CircularProgressIndicator());
+                },
+              ),
+            ),
+            const SliverToBoxAdapter(child: SizedBox(height: defaultPadding)),
+            SliverPadding(
+              padding: const EdgeInsets.symmetric(horizontal: defaultPadding),
+              sliver: SliverToBoxAdapter(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Reviews",
+                      style: Theme.of(context).textTheme.titleSmall!,
                     ),
-                  ),
+                    const SizedBox(height: defaultPadding),
+                    ...List.generate(
+                      3,
+                      (index) => Padding(
+                        padding: const EdgeInsets.only(bottom: defaultPadding),
+                        child: Container(
+                          padding: const EdgeInsets.all(defaultPadding),
+                          decoration: BoxDecoration(
+                            color: Theme.of(context).textTheme.bodyLarge!.color!.withOpacity(0.035),
+                            borderRadius: const BorderRadius.all(Radius.circular(8)),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                children: [
+                                  Text(
+                                    "⭐⭐⭐⭐⭐",
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                  const Spacer(),
+                                  Text(
+                                    "4 days ago",
+                                    style: Theme.of(context).textTheme.bodySmall,
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                "Esther Howard",
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                "Love it! Super fast shipping and exactly as described. Will definitely order from this seller again!",
+                                style: Theme.of(context).textTheme.bodyMedium,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ),
-            const SliverToBoxAdapter(
-              child: SizedBox(height: defaultPadding * 2), // Reduced space since no FAB
-            )
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _WishlistIconButton extends StatefulWidget {
-  @override
-  _WishlistIconButtonState createState() => _WishlistIconButtonState();
-}
-
-class _WishlistIconButtonState extends State<_WishlistIconButton> {
-  bool isInWishlist = false;
-
-  @override
-  Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: () {
-        setState(() {
-          isInWishlist = !isInWishlist;
-        });
-        // TODO: Add actual wishlist API call here
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isInWishlist ? 'Added to wishlist' : 'Removed from wishlist',
-            ),
-            duration: Duration(milliseconds: 1000),
-          ),
-        );
-      },
-      icon: Icon(
-        isInWishlist ? Icons.favorite : Icons.favorite_border,
-        color: isInWishlist 
-          ? Colors.red 
-          : Theme.of(context).textTheme.bodyLarge!.color,
       ),
     );
   }
