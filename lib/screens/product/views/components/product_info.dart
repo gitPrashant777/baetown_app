@@ -13,12 +13,14 @@ class ProductInfo extends StatelessWidget {
     required this.rating,
     required this.numOfReviews,
     required this.isAvailable,
+    this.stockQuantity,
   });
 
   final String title, brand, description;
   final double rating;
   final int numOfReviews;
   final bool isAvailable;
+  final int? stockQuantity;
 
   @override
   Widget build(BuildContext context) {
@@ -42,6 +44,45 @@ class ProductInfo extends StatelessWidget {
             Row(
               children: [
                 ProductAvailabilityTag(isAvailable: isAvailable),
+                if (stockQuantity != null) ...[
+                  const SizedBox(width: defaultPadding / 2),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: defaultPadding / 2,
+                      vertical: defaultPadding / 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: stockQuantity! > 10 
+                          ? Colors.green.withOpacity(0.1)
+                          : stockQuantity! > 0
+                              ? Colors.orange.withOpacity(0.1)
+                              : Colors.red.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(4),
+                      border: Border.all(
+                        color: stockQuantity! > 10 
+                            ? Colors.green
+                            : stockQuantity! > 0
+                                ? Colors.orange
+                                : Colors.red,
+                        width: 1,
+                      ),
+                    ),
+                    child: Text(
+                      stockQuantity! > 0 
+                          ? "Stock: $stockQuantity"
+                          : "Out of Stock",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                        color: stockQuantity! > 10 
+                            ? Colors.green
+                            : stockQuantity! > 0
+                                ? Colors.orange
+                                : Colors.red,
+                      ),
+                    ),
+                  ),
+                ],
                 const Spacer(),
                 SvgPicture.asset("assets/icons/Star_filled.svg"),
                 const SizedBox(width: defaultPadding / 4),

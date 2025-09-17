@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:form_field_validator/form_field_validator.dart';
+import 'models/product_model.dart';
 
 // Just for demo - High quality jewelry images
 const productDemoImg1 = "https://images.unsplash.com/photo-1515562141207-7a88fb7ce338?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=800&q=80";
@@ -80,3 +81,46 @@ final emaildValidator = MultiValidator([
 ]);
 
 const pasNotMatchErrorText = "passwords do not match";
+
+// Demo products list for screens that need it
+final List<ProductModel> demoPopularProducts = [
+  ProductModel(
+    productId: "demo1",
+    title: "Diamond Ring",
+    brandName: "BAETOWN",
+    description: "Beautiful diamond ring",
+    category: "Jewelry",
+    price: 299.99,
+    stockQuantity: 10,
+    maxOrderQuantity: 2,
+    isOutOfStock: false,
+    image: productDemoImg1,
+    images: [productDemoImg1, productDemoImg2],
+  ),
+  ProductModel(
+    productId: "demo2",
+    title: "Gold Bracelet",
+    brandName: "BAETOWN", 
+    description: "Elegant gold bracelet",
+    category: "Jewelry",
+    price: 199.99,
+    stockQuantity: 5,
+    maxOrderQuantity: 1,
+    isOutOfStock: false,
+    image: productDemoImg3,
+    images: [productDemoImg3, productDemoImg4],
+  ),
+  ProductModel(
+    productId: "demo3",
+    title: "Silver Necklace",
+    brandName: "BAETOWN",
+    description: "Classic silver necklace",
+    category: "Jewelry", 
+    price: 149.99,
+    stockQuantity: 8,
+    maxOrderQuantity: 3,
+    isOutOfStock: false,
+    image: productDemoImg5,
+    images: [productDemoImg5, productDemoImg6],
+  ),
+];

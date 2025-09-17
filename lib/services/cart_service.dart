@@ -82,7 +82,18 @@ class CartService extends ChangeNotifier {
   int getProductQuantityInCart(String? productId) {
     final item = _items.firstWhere(
       (item) => item.product.productId == productId,
-      orElse: () => CartItem(product: ProductModel(image: '', brandName: '', title: '', price: 0)),
+      orElse: () => CartItem(product: ProductModel(
+        image: '', 
+        brandName: '', 
+        title: '', 
+        description: '',
+        category: '',
+        price: 0,
+        stockQuantity: 0,
+        maxOrderQuantity: 0,
+        isOutOfStock: false,
+        images: [],
+      )),
     );
     return item.product.productId == productId ? item.quantity : 0;
   }

@@ -71,7 +71,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     print('   Out of Stock: ${product.isOutOfStock}');
     
     _titleController.text = product.title;
-    _brandController.text = product.brandName;
+    _brandController.text = product.brandName ?? "BAETOWN";
     _priceController.text = product.price.toString();
     _discountPriceController.text = product.priceAfetDiscount?.toString() ?? '';
     _stockController.text = product.stockQuantity.toString();
@@ -235,16 +235,49 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         }
 
         // Create product data with image URLs (placeholders or real URLs)
+        print('🔍 DEBUG CONTROLLER VALUES:');
+        print('   Title Controller: "${_titleController.text}"');
+        print('   Brand Controller: "${_brandController.text}"');
+        print('   Title Trimmed: "${_titleController.text.trim()}"');
+        print('   Brand Trimmed: "${_brandController.text.trim()}"');
+        
         Map<String, dynamic> productData = {
           'name': _titleController.text.trim(),
-          'description': _brandController.text.trim(),
-          'category': 'Other',
+          'description': _titleController.text.trim().isNotEmpty 
+              ? _titleController.text.trim()
+              : 'Product description',
+          'brand': _brandController.text.trim().isNotEmpty 
+              ? _brandController.text.trim() 
+              : 'Default Brand',
+          'category': 'Electronics', // Fixed category as per backend
           'price': double.parse(_priceController.text),
           'stock': int.parse(_stockController.text),
-          'images': _selectedImages.isNotEmpty 
-              ? _selectedImages.where((img) => img.isNotEmpty).toList() // Filter out empty strings
-              : ['https://via.placeholder.com/400x400/CCCCCC/FFFFFF?text=No+Image'],
+          'maxOrderQuantity': int.tryParse(_maxOrderController.text) ?? 10,
+          'isOutOfStock': false,
+          'isOnSale': false,
+          'isPopular': false,
+          'isBestSeller': false,
+          'isFlashSale': false,
         };
+
+        // Only add images if they exist
+        if (_selectedImages.isNotEmpty && _selectedImages.any((img) => img.isNotEmpty)) {
+          productData['images'] = _selectedImages.where((img) => img.isNotEmpty).toList();
+        }
+
+        // Validate required fields
+        if (productData['name'].toString().trim().isEmpty) {
+          throw Exception('Product name is required');
+        }
+        if (productData['brand'].toString().trim().isEmpty) {
+          throw Exception('Brand is required');
+        }
+        if (productData['price'] <= 0) {
+          throw Exception('Price must be greater than 0');
+        }
+        if (productData['stock'] < 0) {
+          throw Exception('Stock cannot be negative');
+        }
 
         print('🖼️ Final selected images: ${_selectedImages.length}');
         print('🖼️ Uploaded images: ${_uploadedImages.length}');

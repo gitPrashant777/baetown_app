@@ -76,7 +76,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
   void _loadProductData() {
     final product = widget.product!;
     _titleController.text = product.title;
-    _brandController.text = product.brandName;
+    _brandController.text = product.brandName ?? "BAETOWN";
     _descriptionController.text = product.description ?? '';
     _selectedCategory = product.category ?? 'Electronics';
     _priceController.text = product.price.toString();
@@ -219,6 +219,15 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
       
+      // Debug: Check if we're updating or creating
+      if (widget.product == null) {
+        print('🆕 Creating new product');
+      } else {
+        print('✏️ Updating existing product');
+        print('  • Product ID: ${widget.product!.productId}');
+        print('  • Current title: ${widget.product!.title}');
+      }
+      
       try {
         // 1. First upload images to Cloudinary
         print('🚀 Step 1: Uploading images to Cloudinary...');
@@ -259,6 +268,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
         Map<String, dynamic> productData = {
           'name': _titleController.text.trim(),
           'description': _descriptionController.text.trim(),
+          'brand': _brandController.text.trim(),
           'category': _selectedCategory,
           'price': double.parse(_priceController.text),
           'stock': int.parse(_stockController.text),
@@ -297,44 +307,105 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
         }
 
         print('📦 Final product data: $productData');
-
-        // Add optional fields
-        if (_discountPriceController.text.isNotEmpty) {
-          double discountPrice = double.parse(_discountPriceController.text);
-          double originalPrice = double.parse(_priceController.text);
-          productData['salePrice'] = discountPrice;
-          if (discountPrice < originalPrice) {
-            productData['discount'] = ((originalPrice - discountPrice) / originalPrice * 100).round();
+        
+        // Debug: Show individual fields
+        print('📋 Product Fields Summary:');
+        print('  • name: ${productData['name']}');
+        print('  • description: ${productData['description']}');
+        print('  • brand: ${productData['brand']}');
+        print('  • category: ${productData['category']}');
+        print('  • price: ${productData['price']}');
+        print('  • stock: ${productData['stock']}');
+        print('  • maxOrderQuantity: ${productData['maxOrderQuantity']}');
+        print('  • images count: ${productData['images']?.length ?? 0}');
+        print('  • flags: {isOnSale: ${productData['isOnSale']}, isPopular: ${productData['isPopular']}, isBestSeller: ${productData['isBestSeller']}, isFlashSale: ${productData['isFlashSale']}}');
+        
+        // Add optional fields for CREATE only (not for UPDATE to avoid backend issues)
+        if (widget.product == null) {
+          // Only add these fields when creating new products
+          if (_discountPriceController.text.isNotEmpty) {
+            double discountPrice = double.parse(_discountPriceController.text);
+            double originalPrice = double.parse(_priceController.text);
+            productData['salePrice'] = discountPrice;
+            if (discountPrice < originalPrice) {
+              productData['discount'] = ((originalPrice - discountPrice) / originalPrice * 100).round();
+            }
+          } else {
+            productData['salePrice'] = double.parse(_priceController.text) * 0.9; // 10% discount
+            productData['discount'] = 10;
           }
         } else {
-          productData['salePrice'] = double.parse(_priceController.text) * 0.9; // 10% discount
-          productData['discount'] = 10;
+          // For updates, create a cleaner payload with only allowed fields
+          print('🧹 Creating clean update payload...');
+          Map<String, dynamic> updateData = {
+            'name': productData['name'],
+            'description': productData['description'],
+            'brand': productData['brand'],
+            'category': productData['category'],
+            'price': productData['price'],
+            'stock': productData['stock'],
+            'maxOrderQuantity': productData['maxOrderQuantity'],
+            'images': productData['images'],
+            'isOutOfStock': productData['isOutOfStock'],
+            // Only include flags if present
+            if (productData.containsKey('isOnSale')) 'isOnSale': productData['isOnSale'],
+            if (productData.containsKey('isPopular')) 'isPopular': productData['isPopular'],
+            if (productData.containsKey('isBestSeller')) 'isBestSeller': productData['isBestSeller'],
+            if (productData.containsKey('isFlashSale')) 'isFlashSale': productData['isFlashSale'],
+            if (productData.containsKey('flashSaleEnd')) 'flashSaleEnd': productData['flashSaleEnd'],
+          };
+          // Only add salePrice if present
+          if (_discountPriceController.text.isNotEmpty) {
+            double discountPrice = double.parse(_discountPriceController.text);
+            updateData['salePrice'] = discountPrice;
+          }
+          productData = updateData;
+          print('🧹 Clean update payload: $productData');
         }
 
-        print('🎯 Step 4: Creating product with ${allImageUrls.length} images...');
-        Map<String, dynamic> result = await _createProductDirectAPI(productData, directToken);
+        print('🎯 Step 4: ${widget.product == null ? 'Creating' : 'Updating'} product with ${allImageUrls.length} images...');
         
-        if (!result['success']) {
-          throw Exception(result['message'] ?? 'Failed to create product');
+        Map<String, dynamic> result;
+        if (widget.product == null) {
+          // Creating new product
+          result = await _createProductDirectAPI(productData, directToken);
+        } else {
+          // Updating existing product
+          print('📝 Updating existing product with ID: ${widget.product!.productId}');
+          // Only send allowed fields for update
+          Map<String, dynamic> updateData = {
+            'name': productData['name'],
+            'description': productData['description'],
+            'brand': productData['brand'],
+            'category': productData['category'],
+            'price': productData['price'],
+            'stock': productData['stock'],
+          };
+          print('🧾 Update API payload: ' + jsonEncode(updateData));
+          result = await _updateProductDirectAPI(widget.product!.productId!, updateData, directToken);
         }
         
-        print('✅ Product created successfully with Cloudinary images!');
+        if (!result['success']) {
+          throw Exception(result['message'] ?? 'Failed to ${widget.product == null ? 'create' : 'update'} product');
+        }
+        
+        print('✅ Product ${widget.product == null ? 'created' : 'updated'} successfully with Cloudinary images!');
         
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Product created successfully with ${allImageUrls.length} images!'),
+              content: Text('Product ${widget.product == null ? 'created' : 'updated'} successfully with ${allImageUrls.length} images!'),
               backgroundColor: successColor,
             ),
           );
           Navigator.pop(context);
         }
       } catch (e) {
-        print('❌ Error creating product: $e');
+        print('❌ Error ${widget.product == null ? 'creating' : 'updating'} product: $e');
         setState(() => _isLoading = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error creating product: $e')),
+            SnackBar(content: Text('Error ${widget.product == null ? 'creating' : 'updating'} product: $e')),
           );
         }
       } finally {
@@ -374,6 +445,48 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
         return {
           'success': false,
           'message': 'Failed to create product: ${response.statusMessage}'
+        };
+      }
+    } catch (e) {
+      print('❌ API Error: $e');
+      return {
+        'success': false,
+        'message': 'Network error: $e'
+      };
+    }
+  }
+
+  Future<Map<String, dynamic>> _updateProductDirectAPI(String productId, Map<String, dynamic> productData, String token) async {
+    try {
+      final dio = Dio();
+      
+      final headers = {
+        'Authorization': 'Bearer $token',
+        'Content-Type': 'application/json; charset=utf-8',
+        'Accept': '*/*',
+      };
+      
+      print('🌐 Updating product $productId with data: ${jsonEncode(productData)}');
+      
+      final response = await dio.put(
+        'https://mern-backend-t3h8.onrender.com/api/v1/admin/product/$productId',
+        data: productData,
+        options: Options(
+          headers: headers,
+          responseType: ResponseType.json,
+        ),
+      );
+
+      if (response.statusCode == 200) {
+        return {
+          'success': true,
+          'product': response.data['product'],
+          'message': 'Product updated successfully'
+        };
+      } else {
+        return {
+          'success': false,
+          'message': 'Failed to update product: ${response.statusMessage}'
         };
       }
     } catch (e) {

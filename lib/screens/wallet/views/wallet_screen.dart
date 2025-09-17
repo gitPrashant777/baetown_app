@@ -50,15 +50,27 @@ class WalletScreen extends StatelessWidget {
                           image: productDemoImg1,
                           title: "Diamond Engagement Ring",
                           brandName: "BAETOWN",
+                          description: "Beautiful diamond engagement ring",
+                          category: "Jewelry",
                           price: 44820, // 540 * 83
                           priceAfetDiscount: 34860, // 420 * 83
                           dicountpercent: 20,
+                          stockQuantity: 10,
+                          maxOrderQuantity: 2,
+                          isOutOfStock: false,
+                          images: [productDemoImg1],
                         ),
                         ProductModel(
                           image: productDemoImg4,
                           title: "Gold Tennis Bracelet",
                           brandName: "BAETOWN",
+                          description: "Elegant gold tennis bracelet",
+                          category: "Jewelry",
                           price: 66400, // 800 * 83
+                          stockQuantity: 5,
+                          maxOrderQuantity: 1,
+                          isOutOfStock: false,
+                          images: [productDemoImg4],
                         ),
                       ],
                     ),
