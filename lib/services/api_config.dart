@@ -56,8 +56,8 @@ class ApiConfig {
   static const String toggleUserNotificationsEndpoint = '/personalization/notifications';
   static const String cartEndpoint = '/cart';
   static const String addProductToCartEndpoint = '/cart';
-  static const String updateCartItemQuantityEndpoint = '/cart/{productId}';
-  static const String deleteCartItemEndpoint = '/cart/{productId}';
+  static const String updateCartItemQuantityEndpoint = '/cart/{cartItemId}';
+  static const String deleteCartItemEndpoint = '/cart/{cartItemId}';
   static const String wishlistEndpoint = '/account/wishlist';
   static const String addProductToWishlistEndpoint = '/account/wishlist';
   static const String deleteWishlistProductEndpoint = '/account/wishlist/{productId}';

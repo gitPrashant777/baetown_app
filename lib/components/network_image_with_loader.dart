@@ -32,32 +32,41 @@ class NetworkImageWithLoader extends StatelessWidget {
             ),
           ),
         ),
-        placeholder: (context, url) => const Skeleton(),
+        placeholder: (context, url) => Container(
+          width: double.infinity,
+          height: double.infinity,
+          color: Colors.grey.withOpacity(0.2),
+          child: const Skeleton(),
+        ),
         errorWidget: (context, url, error) {
           print('Error loading image: $url, Error: $error'); // Debug info
           return Container(
+            width: double.infinity,
+            height: double.infinity,
             color: Colors.grey.withOpacity(0.2),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.image_not_supported,
-                  color: Colors.grey,
-                  size: radius > 20 ? 40 : 20,
-                ),
-                if (radius > 40)
-                  Padding(
-                    padding: const EdgeInsets.all(8.0),
-                    child: Text(
-                      'Image failed to load',
-                      style: TextStyle(
-                        color: Colors.grey,
-                        fontSize: 12,
-                      ),
-                      textAlign: TextAlign.center,
-                    ),
+            child: Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Icon(
+                    Icons.image_not_supported,
+                    color: Colors.grey,
+                    size: radius > 20 ? 40 : 20,
                   ),
-              ],
+                  if (radius > 40)
+                    Padding(
+                      padding: const EdgeInsets.all(8.0),
+                      child: Text(
+                        'No Image',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 12,
+                        ),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                ],
+              ),
             ),
           );
         },

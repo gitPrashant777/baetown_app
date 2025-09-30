@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shop/components/cart_item_widget.dart';
 import 'package:shop/services/cart_service.dart';
+import 'package:shop/services/cart_wishlist_api_service.dart';
+import 'package:shop/models/cart_item_model.dart';
 import 'package:shop/services/payment_service.dart';
 import 'package:shop/constants.dart';
 
@@ -12,28 +14,48 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
-  final CartService _cartService = CartService();
+  final CartApiService _cartApi = CartApiService();
+  List<dynamic> _cartItems = [];
+  bool _isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _cartService.addListener(_onCartChanged);
+    _fetchCart();
   }
 
   @override
   void dispose() {
-    _cartService.removeListener(_onCartChanged);
     // Dispose Razorpay payment service
     PaymentService.dispose();
     super.dispose();
   }
 
-  void _onCartChanged() {
-    setState(() {});
+  Future<void> _fetchCart() async {
+    setState(() => _isLoading = true);
+    try {
+      final cartData = await _cartApi.getCart();
+      setState(() {
+        final rawCart = cartData?['cart'] ?? [];
+        _cartItems = rawCart is List
+            ? rawCart.map((item) => CartItem.fromJson(item)).toList()
+            : [];
+        _isLoading = false;
+      });
+    } catch (e) {
+      print('Error fetching cart: $e');
+      setState(() => _isLoading = false);
+    }
+  }
+
+  // Helper function to get the product ID for API calls
+  String? _getProductId(CartItem cartItem) {
+    // Try common product ID field names - adjust based on your ProductModel
+  return cartItem.product.productId ?? cartItem.cartItemId;
   }
 
   void _processPayment() {
-    if (_cartService.items.isEmpty) {
+    if (_cartItems.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Your cart is empty!'),
@@ -46,7 +68,7 @@ class _CartScreenState extends State<CartScreen> {
     // Initialize Razorpay with current context
     PaymentService.initialize(context);
 
-    final totalAmount = _cartService.totalPrice;
+    final totalAmount = _cartItems.fold(0.0, (sum, item) => sum + (item.totalPrice));
     final orderId = PaymentService.generateOrderId();
 
     // Show loading dialog
@@ -83,11 +105,11 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final cartItems = _cartService.items;
+    final cartItems = _cartItems;
     
     return Scaffold(
       appBar: AppBar(
-        title: Text('Cart (${_cartService.totalQuantity})'),
+        title: Text('Cart (${cartItems.length})'),
         actions: [
           if (cartItems.isNotEmpty)
             IconButton(
@@ -103,9 +125,29 @@ class _CartScreenState extends State<CartScreen> {
                         child: const Text('Cancel'),
                       ),
                       TextButton(
-                        onPressed: () {
-                          _cartService.clearCart();
-                          Navigator.pop(context);
+                        onPressed: () async {
+                          // Use the API to clear cart instead of just clearing the list
+                          final success = await _cartApi.clearCart();
+                          if (success) {
+                            setState(() {
+                              _cartItems.clear();
+                            });
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Cart cleared successfully'),
+                                backgroundColor: Colors.green,
+                              ),
+                            );
+                          } else {
+                            Navigator.pop(context);
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Failed to clear cart'),
+                                backgroundColor: Colors.red,
+                              ),
+                            );
+                          }
                         },
                         child: const Text('Clear'),
                       ),
@@ -117,103 +159,183 @@ class _CartScreenState extends State<CartScreen> {
             ),
         ],
       ),
-      body: cartItems.isEmpty
-          ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.shopping_cart_outlined,
-                    size: 100,
-                    color: Colors.grey,
-                  ),
-                  SizedBox(height: 16),
-                  Text(
-                    'Your Cart is Empty',
-                    style: TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  SizedBox(height: 8),
-                  Text(
-                    'Add items to your cart to see them here',
-                    style: TextStyle(
-                      color: Colors.grey,
-                      fontSize: 16,
-                    ),
-                  ),
-                ],
-              ),
-            )
-          : Column(
-              children: [
-                Expanded(
-                  child: ListView.builder(
-                    itemCount: cartItems.length,
-                    itemBuilder: (context, index) {
-                      return CartItemWidget(
-                        cartItem: cartItems[index],
-                        index: index,
-                        onRemove: () => _cartService.removeFromCart(index),
-                      );
-                    },
-                  ),
-                ),
-                // Cart Summary
-                Container(
-                  padding: const EdgeInsets.all(defaultPadding),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).scaffoldBackgroundColor,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, -2),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator())
+          : cartItems.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.shopping_cart_outlined,
+                        size: 100,
+                        color: Colors.grey,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Your Cart is Empty',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 8),
+                      Text(
+                        'Add items to your cart to see them here',
+                        style: TextStyle(
+                          color: Colors.grey,
+                          fontSize: 16,
+                        ),
                       ),
                     ],
                   ),
-                  child: SafeArea(
-                    child: Column(
-                      children: [
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                )
+              : Column(
+                  children: [
+                    Expanded(
+                      child: ListView.builder(
+                        itemCount: cartItems.length,
+                        itemBuilder: (context, index) {
+                          final cartItem = cartItems[index];
+                          final productId = cartItem.product.productId;
+                          return CartItemWidget(
+                            cartItem: cartItem,
+                            index: index,
+                            onRemove: () async {
+                              print('DEBUG: cartItem.product.productId = ${cartItem.product.productId}, cartItem.cartItemId = ${cartItem.cartItemId}');
+                              String? idToDelete = productId;
+                              if (idToDelete == null || idToDelete.isEmpty) {
+                                print('Warning: productId missing, falling back to cartItemId');
+                                idToDelete = cartItem.cartItemId;
+                              }
+                              if (idToDelete == null || idToDelete.isEmpty) {
+                                print('Error: No valid ID found for removal');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Unable to remove item - invalid ID'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                              print('Removing item with ID: $idToDelete');
+                              final success = await _cartApi.removeFromCart(idToDelete);
+                              if (success) {
+                                await _fetchCart(); // Refresh the cart
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Item removed from cart'),
+                                    backgroundColor: Colors.green,
+                                  ),
+                                );
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Failed to remove item'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                            onUpdateQuantity: (newQuantity) async {
+                              if (cartItem.cartItemId == null || cartItem.cartItemId.isEmpty) {
+                                print('Error: No valid cart item ID found for update');
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Unable to update quantity - invalid cart item ID'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                                return;
+                              }
+                              if (newQuantity <= 0) {
+                                // If quantity is 0 or less, remove the item
+                                final success = await _cartApi.removeFromCart(cartItem.cartItemId);
+                                if (success) {
+                                  await _fetchCart();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                      content: Text('Item removed from cart'),
+                                      backgroundColor: Colors.green,
+                                    ),
+                                  );
+                                }
+                                return;
+                              }
+                              print('Updating cart item ${cartItem.cartItemId} quantity to: $newQuantity');
+                              final result = await _cartApi.updateCartItem(
+                                itemId: cartItem.cartItemId,
+                                quantity: newQuantity
+                              );
+                              if (result != null) {
+                                await _fetchCart(); // Refresh the cart
+                              } else {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(
+                                    content: Text('Failed to update quantity'),
+                                    backgroundColor: Colors.red,
+                                  ),
+                                );
+                              }
+                            },
+                          );
+                        },
+                      ),
+                    ),
+                    // Cart Summary
+                    Container(
+                      padding: const EdgeInsets.all(defaultPadding),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withOpacity(0.1),
+                            blurRadius: 4,
+                            offset: const Offset(0, -2),
+                          ),
+                        ],
+                      ),
+                      child: SafeArea(
+                        child: Column(
                           children: [
-                            Text(
-                              'Total (${_cartService.totalQuantity} items)',
-                              style: Theme.of(context).textTheme.titleMedium,
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Total (${cartItems.length} items)',
+                                  style: Theme.of(context).textTheme.titleMedium,
+                                ),
+                                Text(
+                                  '₹${cartItems.fold(0.0, (sum, item) => sum + (item.totalPrice)).toStringAsFixed(0)}',
+                                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                    color: primaryColor,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                              ],
                             ),
-                            Text(
-                              '₹${_cartService.totalPrice.toStringAsFixed(0)}',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                color: primaryColor,
-                                fontWeight: FontWeight.bold,
+                            const SizedBox(height: defaultPadding),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                onPressed: _processPayment,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: primaryColor,
+                                  foregroundColor: Colors.white,
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
+                                ),
+                                child: const Text(
+                                  'Proceed to Checkout',
+                                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                                ),
                               ),
                             ),
                           ],
                         ),
-                        const SizedBox(height: defaultPadding),
-                        SizedBox(
-                          width: double.infinity,
-                          child: ElevatedButton(
-                            onPressed: _processPayment,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: primaryColor,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(vertical: 16),
-                            ),
-                            child: const Text(
-                              'Proceed to Checkout',
-                              style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
-                            ),
-                          ),
-                        ),
-                      ],
+                      ),
                     ),
-                  ),
+                  ],
                 ),
-              ],
-            ),
     );
   }
 }

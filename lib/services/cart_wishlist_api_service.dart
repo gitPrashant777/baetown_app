@@ -15,6 +15,7 @@ class CartApiService {
       );
       
       if (response.success && response.data != null) {
+        print('Cart data received: ${response.data}');
         return response.data!;
       }
       print('Failed to get cart: ${response.error}');
@@ -40,13 +41,15 @@ class CartApiService {
         if (color != null) 'color': color,
       };
 
+      print('Adding to cart: $cartData');
       final response = await _apiService.post<Map<String, dynamic>>(
-        '${ApiConfig.cartEndpoint}/add',
+        ApiConfig.cartEndpoint,
         body: cartData,
         requiresAuth: true,
       );
 
       if (response.success && response.data != null) {
+        print('Item added to cart successfully');
         return response.data!;
       }
       print('Failed to add to cart: ${response.error}');
@@ -59,7 +62,7 @@ class CartApiService {
 
   // Update cart item quantity
   Future<Map<String, dynamic>?> updateCartItem({
-    required String itemId,
+    required String itemId, // This should be the cartItemId
     required int quantity,
   }) async {
     try {
@@ -67,13 +70,19 @@ class CartApiService {
         'quantity': quantity,
       };
 
+      print('Updating cart item with cartItemId: $itemId, quantity: $quantity');
+      // Use the correct endpoint format from ApiConfig - replace {cartItemId} with actual cartItemId
+      final endpoint = ApiConfig.updateCartItemQuantityEndpoint.replaceFirst('{cartItemId}', itemId);
+      print('Update endpoint: $endpoint');
+      
       final response = await _apiService.put<Map<String, dynamic>>(
-        '${ApiConfig.cartEndpoint}/item/$itemId',
+        endpoint,
         body: updateData,
         requiresAuth: true,
       );
 
       if (response.success && response.data != null) {
+        print('Cart item updated successfully');
         return response.data!;
       }
       print('Failed to update cart item: ${response.error}');
@@ -85,13 +94,23 @@ class CartApiService {
   }
 
   // Remove item from cart
-  Future<bool> removeFromCart(String itemId) async {
+  Future<bool> removeFromCart(String productId) async {
     try {
+      print('Removing cart item with product ID: $productId');
+      // Use the correct endpoint format from ApiConfig - replace {cartItemId} with actual productId
+      final endpoint = ApiConfig.deleteCartItemEndpoint.replaceFirst('{cartItemId}', productId);
+      print('Delete endpoint: $endpoint');
       final response = await _apiService.delete<Map<String, dynamic>>(
-        '${ApiConfig.cartEndpoint}/item/$itemId',
+        endpoint,
         requiresAuth: true,
       );
-      return response.success;
+      if (response.success) {
+        print('Cart item removed successfully');
+        return true;
+      } else {
+        print('Failed to remove cart item: ${response.error}');
+        return false;
+      }
     } catch (e) {
       print('Error removing from cart: $e');
       return false;
@@ -101,11 +120,22 @@ class CartApiService {
   // Clear entire cart
   Future<bool> clearCart() async {
     try {
+      print('Clearing entire cart');
+      
+      // Since there's no specific clear endpoint in ApiConfig, we'll use a generic approach
+      // You might need to implement this endpoint in your backend
       final response = await _apiService.delete<Map<String, dynamic>>(
         '${ApiConfig.cartEndpoint}/clear',
         requiresAuth: true,
       );
-      return response.success;
+      
+      if (response.success) {
+        print('Cart cleared successfully');
+        return true;
+      } else {
+        print('Failed to clear cart: ${response.error}');
+        return false;
+      }
     } catch (e) {
       print('Error clearing cart: $e');
       return false;
@@ -200,7 +230,7 @@ class WishlistApiService {
       };
 
       final response = await _apiService.post<Map<String, dynamic>>(
-        '${ApiConfig.wishlistEndpoint}/add',
+        ApiConfig.wishlistEndpoint,
         body: wishlistData,
         requiresAuth: true,
       );
@@ -219,8 +249,11 @@ class WishlistApiService {
   // Remove item from wishlist
   Future<bool> removeFromWishlist(String productId) async {
     try {
+      // Use the correct endpoint format from ApiConfig
+      final endpoint = ApiConfig.deleteWishlistProductEndpoint.replaceFirst('{productId}', productId);
+      
       final response = await _apiService.delete<Map<String, dynamic>>(
-        '${ApiConfig.wishlistEndpoint}/item/$productId',
+        endpoint,
         requiresAuth: true,
       );
       return response.success;
@@ -234,9 +267,19 @@ class WishlistApiService {
   Future<bool> isInWishlist(String productId) async {
     try {
       final response = await _apiService.get<Map<String, dynamic>>(
-        '${ApiConfig.wishlistEndpoint}/check/$productId',
+        ApiConfig.wishlistEndpoint,
         requiresAuth: true,
       );
+      // Check if productId is in the wishlist array
+      if (response.success && response.data != null && response.data!['wishlist'] is List) {
+        final wishlist = response.data!['wishlist'] as List;
+        return wishlist.any((item) {
+          if (item is Map<String, dynamic>) {
+            return item['productId'] == productId || item['_id'] == productId;
+          }
+          return false;
+        });
+      }
       
       if (response.success && response.data != null) {
         return response.data!['isInWishlist'] == true;
@@ -275,4 +318,4 @@ class WishlistApiService {
       return null;
     }
   }
-}
+} 

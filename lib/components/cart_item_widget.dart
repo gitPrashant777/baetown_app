@@ -8,12 +8,14 @@ class CartItemWidget extends StatelessWidget {
   final CartItem cartItem;
   final int index;
   final VoidCallback onRemove;
+  final Future<void> Function(int newQuantity) onUpdateQuantity;
 
   const CartItemWidget({
     super.key,
     required this.cartItem,
     required this.index,
     required this.onRemove,
+    required this.onUpdateQuantity,
   });
 
   @override
@@ -38,39 +40,49 @@ class CartItemWidget extends StatelessWidget {
       child: Row(
         children: [
           // Product Image
-          SizedBox(
-            width: 80,
-            height: 80,
-            child: NetworkImageWithLoader(
-              cartItem.product.image,
-              radius: defaultBorderRadious,
+          if (cartItem.product.images.isNotEmpty && cartItem.product.images.first.isNotEmpty)
+            SizedBox(
+              width: 80,
+              height: 80,
+              child: NetworkImageWithLoader(
+                cartItem.product.images.first,
+                radius: defaultBorderRadious,
+              ),
             ),
-          ),
           const SizedBox(width: defaultPadding),
-          
+
           // Product Details
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  cartItem.product.title,
+                  cartItem.product.title ?? '',
                   style: Theme.of(context).textTheme.titleMedium,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  cartItem.product.brandName?.toUpperCase() ?? "UNKNOWN",
+                  cartItem.product.description ?? '',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Colors.grey[600],
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Category: ${cartItem.product.category ?? ''}',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: Colors.grey[500],
                   ),
                 ),
                 const SizedBox(height: 8),
                 Row(
                   children: [
                     Text(
-                      "₹${cartItem.totalPrice.toStringAsFixed(0)}",
+                      '₹${cartItem.product.priceAfetDiscount ?? cartItem.product.price}',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         color: primaryColor,
                         fontWeight: FontWeight.bold,
@@ -87,17 +99,12 @@ class CartItemWidget extends StatelessWidget {
                         mainAxisSize: MainAxisSize.min,
                         children: [
                           IconButton(
-                            onPressed: () {
+                            onPressed: () async {
                               if (cartItem.quantity > 1) {
-                                CartService().updateQuantity(index, cartItem.quantity - 1);
-                              } else {
-                                CartService().removeFromCart(index);
+                                await onUpdateQuantity(cartItem.quantity - 1);
                               }
                             },
-                            icon: Icon(
-                              cartItem.quantity > 1 ? Icons.remove : Icons.delete,
-                              size: 20,
-                            ),
+                            icon: const Icon(Icons.remove, size: 20),
                             constraints: const BoxConstraints(
                               minWidth: 32,
                               minHeight: 32,
@@ -111,13 +118,23 @@ class CartItemWidget extends StatelessWidget {
                             ),
                           ),
                           IconButton(
-                            onPressed: () {
+                            onPressed: () async {
                               final maxAllowed = cartItem.product.getMaxAllowedQuantity();
                               if (cartItem.quantity < maxAllowed) {
-                                CartService().updateQuantity(index, cartItem.quantity + 1);
+                                await onUpdateQuantity(cartItem.quantity + 1);
                               }
                             },
                             icon: const Icon(Icons.add, size: 20),
+                            constraints: const BoxConstraints(
+                              minWidth: 32,
+                              minHeight: 32,
+                            ),
+                          ),
+                          IconButton(
+                            onPressed: () async {
+                              onRemove();
+                            },
+                            icon: const Icon(Icons.delete, size: 20, color: Colors.red),
                             constraints: const BoxConstraints(
                               minWidth: 32,
                               minHeight: 32,

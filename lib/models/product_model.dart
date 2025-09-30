@@ -150,9 +150,14 @@ class ProductModel {
       maxOrderQuantity: json['maxOrderQuantity'] ?? 5,
       isOutOfStock: json['isOutOfStock'] ?? false,
       image: json['image'] ?? '',
-      images: json['images'] != null 
-          ? List<String>.from(json['images'])
-          : [json['image'] ?? ''],
+    images: json['images'] != null
+      ? (json['images'] is List
+        ? (json['images'] as List)
+          .map((img) => img is String ? img : (img is Map<String, dynamic> ? (img['url'] ?? '') : ''))
+          .whereType<String>()
+          .toList()
+        : [json['image'] ?? ''])
+      : [json['image'] ?? ''],
       isOnSale: json['isOnSale'],
       isPopular: json['isPopular'],
       isBestSeller: json['isBestSeller'],

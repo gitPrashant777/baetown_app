@@ -38,61 +38,87 @@ class _ProductImagesState extends State<ProductImages> {
     return SliverToBoxAdapter(
       child: AspectRatio(
         aspectRatio: 1,
-        child: Stack(
-          children: [
-            PageView.builder(
-              controller: _controller,
-              onPageChanged: (pageNum) {
-                setState(() {
-                  _currentPage = pageNum;
-                });
-              },
-              itemCount: widget.images.length,
-              itemBuilder: (context, index) => Padding(
-                padding: const EdgeInsets.only(right: defaultPadding),
-                child: ClipRRect(
-                  borderRadius: const BorderRadius.all(
-                    Radius.circular(defaultBorderRadious * 2),
-                  ),
-                  child: NetworkImageWithLoader(widget.images[index]),
+        child: Builder(
+          builder: (context) {
+            final filteredImages = widget.images.where((img) {
+              final url = img.trim().toLowerCase();
+              final isValidUrl = url.startsWith('http://') || url.startsWith('https://');
+              final isCloudinary = url.contains('cloudinary');
+              return isValidUrl && url.isNotEmpty && isCloudinary;
+            }).toList();
+            if (filteredImages.isEmpty) {
+              return ClipRRect(
+                borderRadius: const BorderRadius.all(
+                  Radius.circular(defaultBorderRadious * 2),
                 ),
-              ),
-            ),
-            if (widget.images.length > 1)
-              Positioned(
-                height: 20,
-                bottom: 24,
-                right: MediaQuery.of(context).size.width * 0.15,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: defaultPadding * 0.75,
+                  color: Colors.grey.withOpacity(0.2),
+                  child: Center(
+                    child: Icon(Icons.image_not_supported, color: Colors.grey, size: 48),
                   ),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).scaffoldBackgroundColor,
-                    borderRadius: const BorderRadius.all(Radius.circular(50)),
-                  ),
-                  child: Row(
-                    children: List.generate(
-                      widget.images.length,
-                      (index) => Padding(
-                        padding: EdgeInsets.only(
-                            right: index == (widget.images.length - 1)
-                                ? 0
-                                : defaultPadding / 4),
-                        child: CircleAvatar(
-                          radius: 3,
-                          backgroundColor: Theme.of(context)
-                              .textTheme
-                              .bodyLarge!
-                              .color!
-                              .withOpacity(index == _currentPage ? 1 : 0.2),
+                ),
+              );
+            }
+            return Stack(
+              children: [
+                PageView.builder(
+                  controller: _controller,
+                  itemCount: filteredImages.length,
+                  onPageChanged: (index) {
+                    setState(() {
+                      _currentPage = index;
+                    });
+                  },
+                  itemBuilder: (context, index) {
+                    return ClipRRect(
+                      borderRadius: const BorderRadius.all(
+                        Radius.circular(defaultBorderRadious * 2),
+                      ),
+                      child: NetworkImageWithLoader(
+                        filteredImages[index],
+                        fit: BoxFit.cover,
+                        radius: defaultBorderRadious * 2,
+                      ),
+                    );
+                  },
+                ),
+                if (filteredImages.length > 1)
+                  Positioned(
+                    height: 20,
+                    bottom: 24,
+                    right: MediaQuery.of(context).size.width * 0.15,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: defaultPadding * 0.75,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).scaffoldBackgroundColor,
+                        borderRadius: const BorderRadius.all(Radius.circular(50)),
+                      ),
+                      child: Row(
+                        children: List.generate(
+                          filteredImages.length,
+                          (index) => Padding(
+                            padding: EdgeInsets.only(
+                                right: index == (filteredImages.length - 1)
+                                    ? 0
+                                    : defaultPadding / 4),
+                            child: CircleAvatar(
+                              radius: 3,
+                              backgroundColor: Theme.of(context)
+                                  .textTheme
+                                  .bodyLarge!
+                                  .color!
+                                  .withOpacity(index == _currentPage ? 1 : 0.2),
+                            ),
+                          ),
                         ),
                       ),
                     ),
                   ),
-                ),
-              )
-          ],
+              ],
+            );
+          },
         ),
       ),
     );

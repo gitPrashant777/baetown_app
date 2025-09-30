@@ -15,6 +15,7 @@ const productDemoImg6 = "https://images.unsplash.com/photo-1596944924616-7b38e7c
 const grandisExtendedFont = "Grandis Extended";
 
 // On color 80, 60.... those means opacity
+const Color pinkColor = primaryColor;
 
 const Color primaryColor = Color(0xFFE91E63); // Changed to pink
 

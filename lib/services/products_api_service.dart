@@ -8,6 +8,65 @@ import 'package:shop/services/auth_api_service.dart';
 import 'package:shop/services/api_config.dart';
 
 class ProductsApiService {
+  // Delete a review
+  Future<Map<String, dynamic>> deleteReview(String productId, String reviewId) async {
+    final String? token = await _getValidToken();
+    if (token == null || token.isEmpty) {
+      return {'success': false, 'message': 'No authentication token available'};
+    }
+    final url = Uri.parse('${ApiConfig.currentBaseUrl}/product/$productId/review/$reviewId');
+    final response = await http.delete(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+    );
+    if (response.statusCode == 200) {
+      return {'success': true};
+    } else {
+      return {'success': false, 'message': response.body};
+    }
+  }
+
+  // Submit a review
+  Future<Map<String, dynamic>> submitReview(String productId, double rating, String comment) async {
+    final String? token = await _getValidToken();
+    if (token == null || token.isEmpty) {
+      return {'success': false, 'message': 'No authentication token available'};
+    }
+    final url = Uri.parse('${ApiConfig.currentBaseUrl}/product/review');
+    final response = await http.put(
+      url,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer $token',
+      },
+      body: jsonEncode({
+        'productId': productId,
+        'rating': rating,
+        'comment': comment,
+      }),
+    );
+    if (response.statusCode == 200 || response.statusCode == 201) {
+      return {'success': true};
+    } else {
+      return {'success': false, 'message': response.body};
+    }
+  }
+
+  // Fetch reviews for a product
+  Future<List<Map<String, dynamic>>> fetchReviews(String productId) async {
+    final url = Uri.parse('${ApiConfig.currentBaseUrl}/product/$productId/reviews');
+    final response = await http.get(url);
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data['success'] == true && data['reviews'] is List) {
+        return List<Map<String, dynamic>>.from(data['reviews']);
+      }
+    }
+    return [];
+  }
   static const String baseUrl = 'https://mern-backend-t3h8.onrender.com/api/v1';
   final AuthApiService _authService = AuthApiService();
 

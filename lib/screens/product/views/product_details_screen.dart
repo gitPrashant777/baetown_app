@@ -9,6 +9,8 @@ import 'package:shop/screens/product/views/product_returns_screen.dart';
 import 'package:shop/route/route_constants.dart';
 import 'package:shop/services/cart_service.dart';
 import 'package:shop/services/products_api_service.dart';
+import 'package:shop/services/cart_wishlist_api_service.dart';
+import 'package:shop/services/api_config.dart';
 import 'package:shop/models/product_model.dart';
 import 'package:shop/route/screen_export.dart';
 
@@ -29,11 +31,23 @@ class ProductDetailsScreen extends StatefulWidget {
 }
 
 class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
+  final CartApiService _cartApi = CartApiService();
+  final WishlistApiService _wishlistApi = WishlistApiService();
   final ProductsApiService _productsApi = ProductsApiService();
+
+  bool _isInWishlist = false;
+  bool _isAddingToCart = false;
+  double _reviewRating = 5.0;
+  final TextEditingController _reviewController = TextEditingController();
+  bool _isSubmittingReview = false;
+
+  // TODO: Replace with actual user ID from auth logic
+  final String currentUserId = "CURRENT_USER_ID";
 
   @override
   void initState() {
     super.initState();
+    _checkWishlist();
     print('🔍 ProductDetailsScreen initialized with product: ${widget.product.productId}');
     print('🔍 Product title: ${widget.product.title}');
     print('🔍 Product images: ${widget.product.images}');
@@ -41,20 +55,120 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     print('🔍 Product stock: ${widget.product.stockQuantity}');
   }
 
+  Future<void> deleteReview(String reviewId) async {
+    final productId = widget.product.productId ?? '';
+    final result = await _productsApi.deleteReview(productId, reviewId);
+    if (result['success'] == true) {
+      setState(() {}); // Refresh reviews
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Review deleted successfully'), backgroundColor: pinkColor),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to delete review'), backgroundColor: errorColor),
+      );
+    }
+  }
+
+  Future<void> submitReview() async {
+    setState(() => _isSubmittingReview = true);
+    final productId = widget.product.productId ?? '';
+    final result = await _productsApi.submitReview(
+      productId,
+      _reviewRating,
+      _reviewController.text.trim(),
+    );
+    setState(() => _isSubmittingReview = false);
+    if (result['success'] == true) {
+      _reviewController.clear();
+      setState(() {}); // Refresh reviews
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Review submitted!'), backgroundColor: pinkColor),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to submit review'), backgroundColor: errorColor),
+      );
+    }
+  }
+
+  Future<List<Map<String, dynamic>>> fetchReviews() async {
+    final productId = widget.product.productId ?? '';
+    return await _productsApi.fetchReviews(productId);
+  }
+
+  Future<void> _checkWishlist() async {
+    final productId = widget.product.productId ?? '';
+    final isWish = await _wishlistApi.isInWishlist(productId);
+    setState(() {
+      _isInWishlist = isWish;
+    });
+  }
+
+  Future<void> _toggleWishlist() async {
+    final productId = widget.product.productId ?? '';
+    if (_isInWishlist) {
+      await _wishlistApi.removeFromWishlist(productId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Removed from wishlist'), backgroundColor: errorColor),
+      );
+    } else {
+      await _wishlistApi.addToWishlist(productId);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Added to wishlist'), backgroundColor: pinkColor),
+      );
+    }
+    _checkWishlist();
+  }
+
+  Future<void> _addToCart() async {
+    setState(() => _isAddingToCart = true);
+    final productId = widget.product.productId ?? '';
+    final result = await _cartApi.addToCart(productId: productId, quantity: 1);
+    setState(() => _isAddingToCart = false);
+    if (result != null && result['success'] == true) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Added to cart!'), backgroundColor: pinkColor),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to add to cart'), backgroundColor: errorColor),
+      );
+    }
+  }
+
   bool get isProductAvailable => !widget.product.isOutOfStock && widget.product.stockQuantity > 0;
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      bottomNavigationBar: CartButton(
-        price: widget.product.priceAfetDiscount ?? widget.product.price,
-        press: () {
-          customModalBottomSheet(
-            context,
-            height: MediaQuery.of(context).size.height * 0.92,
-            child: ProductBuyNowScreen(product: widget.product),
-          );
-        },
+      bottomNavigationBar: Row(
+        children: [
+          Expanded(
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: pinkColor,
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              onPressed: _isAddingToCart ? null : _addToCart,
+              child: _isAddingToCart
+                  ? const CircularProgressIndicator(color: Colors.white)
+                  : const Text('Add to Cart', style: TextStyle(color: Colors.white)),
+            ),
+          ),
+          Expanded(
+            child: CartButton(
+              price: widget.product.priceAfetDiscount ?? widget.product.price,
+              press: () {
+                customModalBottomSheet(
+                  context,
+                  height: MediaQuery.of(context).size.height * 0.92,
+                  child: ProductBuyNowScreen(product: widget.product),
+                );
+              },
+            ),
+          ),
+        ],
       ),
       body: SafeArea(
         child: CustomScrollView(
@@ -64,26 +178,29 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
               floating: true,
               actions: [
                 IconButton(
-                  onPressed: () {},
-                  icon: SvgPicture.asset("assets/icons/Bookmark.svg",
-                      colorFilter: ColorFilter.mode(
-                          Theme.of(context).textTheme.bodyLarge!.color!,
-                          BlendMode.srcIn)),
+                  onPressed: _toggleWishlist,
+                  icon: SvgPicture.asset(
+                    "assets/icons/Heart.svg",
+                    colorFilter: ColorFilter.mode(
+                      _isInWishlist ? Colors.red : Theme.of(context).textTheme.bodyLarge!.color!,
+                      BlendMode.srcIn,
+                    ),
+                  ),
                 ),
               ],
             ),
             ProductImages(
-              images: widget.product.images.isNotEmpty 
+              images: widget.product.images.isNotEmpty
                   ? widget.product.images // Use actual product images array
                   : [productDemoImg1, productDemoImg2, productDemoImg3], // Fallback
             ),
             ProductInfo(
               brand: widget.product.brandName ?? "Unknown Brand",
               title: widget.product.title ?? "Product Title",
-              isAvailable: isProductAvailable,
               description: widget.product.description ?? "No description available",
               rating: 4.3,
               numOfReviews: 125,
+              isAvailable: isProductAvailable,
               stockQuantity: widget.product.stockQuantity,
             ),
             ProductListTile(
@@ -131,7 +248,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         .where((p) => p.productId != widget.product.productId)
                         .take(4)
                         .toList();
-                    
+
                     return SizedBox(
                       height: 220,
                       child: ListView.builder(
@@ -177,46 +294,141 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                       style: Theme.of(context).textTheme.titleSmall!,
                     ),
                     const SizedBox(height: defaultPadding),
-                    ...List.generate(
-                      3,
-                      (index) => Padding(
-                        padding: const EdgeInsets.only(bottom: defaultPadding),
-                        child: Container(
-                          padding: const EdgeInsets.all(defaultPadding),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).textTheme.bodyLarge!.color!.withOpacity(0.035),
-                            borderRadius: const BorderRadius.all(Radius.circular(8)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Text(
-                                    "⭐⭐⭐⭐⭐",
-                                    style: Theme.of(context).textTheme.bodySmall,
+                    FutureBuilder<List<Map<String, dynamic>>>(
+                      future: fetchReviews(),
+                      builder: (context, snapshot) {
+                        if (snapshot.connectionState == ConnectionState.waiting) {
+                          return const Center(child: CircularProgressIndicator());
+                        }
+                        final reviews = snapshot.data ?? [];
+                        print('Reviews type: ${reviews.runtimeType}');
+                        if (reviews is! List) {
+                          return Text('Error: Reviews data is not a List.');
+                        }
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            if (reviews.isEmpty)
+                              Text("No reviews yet.", style: Theme.of(context).textTheme.bodyMedium),
+                            ...reviews.map((review) {
+                              print('Review rating type: ${review['rating'].runtimeType}, value: ${review['rating']}');
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: defaultPadding),
+                                child: Container(
+                                  padding: const EdgeInsets.all(defaultPadding),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).textTheme.bodyLarge!.color!.withOpacity(0.035),
+                                    borderRadius: const BorderRadius.all(Radius.circular(8)),
                                   ),
-                                  const Spacer(),
-                                  Text(
-                                    "4 days ago",
-                                    style: Theme.of(context).textTheme.bodySmall,
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Row(
+                                        children: [
+                                          Row(
+                                            children: (() {
+                                              int ratingStars = 5;
+                                              final ratingRaw = review['rating'];
+                                              double? ratingValue;
+                                              if (ratingRaw is num) {
+                                                ratingValue = ratingRaw.toDouble();
+                                              } else if (ratingRaw is String) {
+                                                ratingValue = double.tryParse(ratingRaw);
+                                              }
+                                              if (ratingValue != null && ratingValue > 0 && ratingValue.isFinite && ratingValue < 100) {
+                                                ratingStars = ratingValue.floor();
+                                              }
+                                              if (ratingStars <= 0 || ratingStars.isNaN || ratingStars > 100) ratingStars = 5;
+                                              return List.generate(ratingStars, (i) => Icon(Icons.star, color: pinkColor, size: 16));
+                                            })(),
+                                          ),
+                                          const Spacer(),
+                                          Text(
+                                            review['createdAt'] ?? '',
+                                            style: Theme.of(context).textTheme.bodySmall,
+                                          ),
+                                          if (review['user'] != null && (
+                                              (review['user'] is Map && review['user']['_id'] == currentUserId) ||
+                                                  (review['user'] is String && review['user'] == currentUserId)
+                                          ))
+                                            IconButton(
+                                              icon: Icon(Icons.delete, color: Colors.pink, size: 20),
+                                              tooltip: 'Delete review',
+                                              onPressed: () async {
+                                                await deleteReview(review['_id']);
+                                              },
+                                            ),
+                                        ],
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        review['user'] != null &&
+                                            (review['user'] is Map && review['user']['name'] != null)
+                                            ? review['user']['name']
+                                            : (
+                                            (review['user'] != null && (
+                                                (review['user'] is Map && review['user']['_id'] == currentUserId) ||
+                                                    (review['user'] is String && review['user'] == currentUserId)
+                                            ))
+                                                ? "You"
+                                                : "Anonymous"
+                                        ),
+                                        style: Theme.of(context).textTheme.titleSmall,
+                                      ),
+                                      const SizedBox(height: 8),
+                                      Text(
+                                        review['comment'] ?? "",
+                                        style: Theme.of(context).textTheme.bodyMedium,
+                                      ),
+                                    ],
                                   ),
-                                ],
+                                ),
+                              );
+                            }),
+                            const SizedBox(height: defaultPadding * 2),
+                            Text("Add your review", style: Theme.of(context).textTheme.titleSmall),
+                            const SizedBox(height: defaultPadding),
+                            Row(
+                              children: List.generate(5, (i) => GestureDetector(
+                                onTap: () => setState(() => _reviewRating = i + 1.0),
+                                child: Icon(
+                                  Icons.star,
+                                  color: i < _reviewRating ? pinkColor : Colors.grey[300],
+                                  size: 28,
+                                ),
+                              )),
+                            ),
+                            const SizedBox(height: defaultPadding),
+                            TextField(
+                              controller: _reviewController,
+                              maxLines: 3,
+                              decoration: InputDecoration(
+                                hintText: "Write your review...",
+                                border: OutlineInputBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                "Esther Howard",
-                                style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            const SizedBox(height: defaultPadding),
+                            SizedBox(
+                              width: double.infinity,
+                              child: ElevatedButton(
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: pinkColor,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(8),
+                                  ),
+                                  padding: const EdgeInsets.symmetric(vertical: 14),
+                                ),
+                                onPressed: _isSubmittingReview ? null : submitReview,
+                                child: _isSubmittingReview
+                                    ? const CircularProgressIndicator(color: Colors.white)
+                                    : const Text("Submit Review", style: TextStyle(color: Colors.white)),
                               ),
-                              const SizedBox(height: 8),
-                              Text(
-                                "Love it! Super fast shipping and exactly as described. Will definitely order from this seller again!",
-                                style: Theme.of(context).textTheme.bodyMedium,
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
+                            ),
+                          ],
+                        );
+                      },
                     ),
                   ],
                 ),
