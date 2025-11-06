@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shop/constants.dart';
-import 'package:shop/services/cart_service.dart';
 
 class PaymentSuccessScreen extends StatelessWidget {
   const PaymentSuccessScreen({
@@ -38,9 +37,9 @@ class PaymentSuccessScreen extends StatelessWidget {
                   size: 80,
                 ),
               ),
-              
+
               const SizedBox(height: 32),
-              
+
               // Success Title
               Text(
                 'Payment Successful!',
@@ -50,9 +49,9 @@ class PaymentSuccessScreen extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
-              
+
               const SizedBox(height: 16),
-              
+
               // Success Message
               Text(
                 'Your order has been placed successfully.',
@@ -61,9 +60,9 @@ class PaymentSuccessScreen extends StatelessWidget {
                 ),
                 textAlign: TextAlign.center,
               ),
-              
+
               const SizedBox(height: 32),
-              
+
               // Payment Details Card
               Container(
                 width: double.infinity,
@@ -83,21 +82,21 @@ class PaymentSuccessScreen extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(height: 16),
-                    
+
                     _buildDetailRow('Order ID:', orderId),
                     const SizedBox(height: 8),
                     _buildDetailRow('Payment ID:', paymentId),
                     const SizedBox(height: 8),
                     _buildDetailRow('Amount Paid:', '₹${amount.toStringAsFixed(2)}'),
                     const SizedBox(height: 8),
-                    _buildDetailRow('Payment Status:', 'Completed', 
+                    _buildDetailRow('Payment Status:', 'Completed',
                         valueColor: Colors.green),
                   ],
                 ),
               ),
-              
+
               const SizedBox(height: 32),
-              
+
               // Action Buttons
               Column(
                 children: [
@@ -106,11 +105,10 @@ class PaymentSuccessScreen extends StatelessWidget {
                     child: ElevatedButton(
                       onPressed: () {
                         // Clear cart after successful payment
-                        CartService().clearCart();
-                        
+
                         // Navigate to home screen
                         Navigator.of(context).pushNamedAndRemoveUntil(
-                          '/', 
+                          '/',
                           (route) => false,
                         );
                       },
@@ -131,9 +129,9 @@ class PaymentSuccessScreen extends StatelessWidget {
                       ),
                     ),
                   ),
-                  
+
                   const SizedBox(height: 12),
-                  
+
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
@@ -164,9 +162,9 @@ class PaymentSuccessScreen extends StatelessWidget {
                   ),
                 ],
               ),
-              
+
               const SizedBox(height: 24),
-              
+
               // Help Text
               Text(
                 'Need help? Contact our customer support',

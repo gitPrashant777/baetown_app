@@ -1,3 +1,4 @@
+// lib/components/cart_button.dart
 import 'package:flutter/material.dart';
 
 import '../constants.dart';
@@ -13,7 +14,7 @@ class CartButton extends StatelessWidget {
 
   final double price;
   final String title, subTitle;
-  final VoidCallback press;
+  final VoidCallback? press;
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +37,7 @@ class CartButton extends StatelessWidget {
               child: Row(
                 children: [
                   Expanded(
-                    flex: 4,
+                    // --- FIX: Removed flex: 4 ---
                     child: Padding(
                       padding: const EdgeInsets.symmetric(
                           horizontal: defaultPadding),
@@ -62,7 +63,7 @@ class CartButton extends StatelessWidget {
                     ),
                   ),
                   Expanded(
-                    flex: 3,
+                    // --- FIX: Removed flex: 3 ---
                     child: Container(
                       alignment: Alignment.center,
                       height: double.infinity,

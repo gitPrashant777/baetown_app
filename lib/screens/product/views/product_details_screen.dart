@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:provider/provider.dart'; // <-- 1. IMPORT PROVIDER
 import 'package:shop/components/cart_button.dart';
 import 'package:shop/components/custom_modal_bottom_sheet.dart';
 import 'package:shop/components/free_delivery_banner.dart';
@@ -10,7 +11,7 @@ import 'package:shop/route/route_constants.dart';
 import 'package:shop/services/cart_service.dart';
 import 'package:shop/services/products_api_service.dart';
 import 'package:shop/services/cart_wishlist_api_service.dart';
-import 'package:shop/services/api_config.dart';
+// import 'package:shop/services/api_config.dart'; // Unused
 import 'package:shop/models/product_model.dart';
 import 'package:shop/route/screen_export.dart';
 
@@ -31,12 +32,20 @@ class ProductDetailsScreen extends StatefulWidget {
 }
 
 class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
-  final CartApiService _cartApi = CartApiService();
-  final WishlistApiService _wishlistApi = WishlistApiService();
+  // --- 2. REMOVE local API instances ---
+  // final CartApiService _cartApi = CartApiService(); // <-- DELETED
+  // final WishlistApiService _wishlistApi = WishlistApiService(); // <-- DELETED
+
+  // --- 3. ADD service variables (will be initialized in initState) ---
+  late CartApiService _cartApi;
+  late WishlistApiService _wishlistApi;
+  late CartService _cartService;
+
+  // This one can stay as it doesn't need auth
   final ProductsApiService _productsApi = ProductsApiService();
 
   bool _isInWishlist = false;
-  bool _isAddingToCart = false;
+  // bool _isAddingToCart = false; // No longer needed, CartService handles this
   double _reviewRating = 5.0;
   final TextEditingController _reviewController = TextEditingController();
   bool _isSubmittingReview = false;
@@ -47,6 +56,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   @override
   void initState() {
     super.initState();
+
+    // --- 4. INITIALIZE services from Provider ---
+    // Use listen: false because we are in initState
+    _cartApi = Provider.of<CartApiService>(context, listen: false);
+    _wishlistApi = Provider.of<WishlistApiService>(context, listen: false);
+    _cartService = Provider.of<CartService>(context, listen: false);
+
     _checkWishlist();
     print('🔍 ProductDetailsScreen initialized with product: ${widget.product.productId}');
     print('🔍 Product title: ${widget.product.title}');
@@ -121,19 +137,24 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     _checkWishlist();
   }
 
+  // --- 5. MODIFY _addToCart to use CartService ---
   Future<void> _addToCart() async {
-    setState(() => _isAddingToCart = true);
-    final productId = widget.product.productId ?? '';
-    final result = await _cartApi.addToCart(productId: productId, quantity: 1);
-    setState(() => _isAddingToCart = false);
-    if (result != null && result['success'] == true) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Added to cart!'), backgroundColor: pinkColor),
-      );
-    } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Failed to add to cart'), backgroundColor: errorColor),
-      );
+    // We already have _cartService from initState
+    await _cartService.addToCart(widget.product, quantity: 1);
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Added to cart!'), backgroundColor: pinkColor),
+    );
+  }
+
+  // --- 6. NEW "Buy Now" method ---
+  Future<void> _buyNow() async {
+    // 1. Add item to cart
+    await _cartService.addToCart(widget.product, quantity: 1);
+
+    // 2. Navigate to cart screen
+    if (mounted) {
+      Navigator.pushNamed(context, cartScreenRoute);
     }
   }
 
@@ -141,6 +162,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // --- 7. LISTEN to CartService for loading state ---
+    final bool isCartLoading = context.watch<CartService>().isLoading;
+
     return Scaffold(
       bottomNavigationBar: Row(
         children: [
@@ -150,8 +174,9 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 backgroundColor: pinkColor,
                 padding: const EdgeInsets.symmetric(vertical: 16),
               ),
-              onPressed: _isAddingToCart ? null : _addToCart,
-              child: _isAddingToCart
+              // --- 8. Use isCartLoading ---
+              onPressed: isCartLoading ? null : _addToCart,
+              child: isCartLoading
                   ? const CircularProgressIndicator(color: Colors.white)
                   : const Text('Add to Cart', style: TextStyle(color: Colors.white)),
             ),
@@ -160,11 +185,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             child: CartButton(
               price: widget.product.priceAfetDiscount ?? widget.product.price,
               press: () {
+                // --- 9. "Buy Now" can use the modal OR navigate ---
+                // Option A: Use the Modal (your original code)
                 customModalBottomSheet(
                   context,
                   height: MediaQuery.of(context).size.height * 0.92,
                   child: ProductBuyNowScreen(product: widget.product),
                 );
+
+                // Option B: Use the Buy Now logic I created
+                // if (!isCartLoading) {
+                //   _buyNow();
+                // }
               },
             ),
           ),

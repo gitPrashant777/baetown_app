@@ -1,3 +1,4 @@
+// lib/models/product_model.dart
 class ProductModel {
   final String? productId;
   final String title;
@@ -12,13 +13,16 @@ class ProductModel {
   final bool isOutOfStock;
   final String image;
   final List<String> images;
-  
+
   // New product flags
   final bool? isOnSale;
   final bool? isPopular;
   final bool? isBestSeller;
   final bool? isFlashSale;
   final DateTime? flashSaleEnd;
+
+  // --- NEW: Added a placeholder image URL ---
+  static const String _placeholderImage = 'https://via.placeholder.com/300.png?text=No+Image';
 
   ProductModel({
     this.productId,
@@ -44,15 +48,15 @@ class ProductModel {
   // Create from API response (backend data)
   factory ProductModel.fromApi(Map<String, dynamic> json) {
     print('🔍 ProductModel.fromApi input: $json');
-    
+
     // Extract images from backend response
     List<String> extractImages(dynamic imagesData) {
       try {
         if (imagesData is List) {
           return imagesData
-              .map((img) => img is Map<String, dynamic> 
-                  ? (img['url'] ?? img['src'] ?? img.toString())
-                  : img.toString())
+              .map((img) => img is Map<String, dynamic>
+              ? (img['url'] ?? img['src'] ?? img.toString())
+              : img.toString())
               .where((url) => url.isNotEmpty)
               .cast<String>()
               .toList();
@@ -63,13 +67,13 @@ class ProductModel {
         return [];
       }
     }
-    
+
     final imagesList = extractImages(json['images']);
-    
+
     final result = ProductModel(
       productId: json['_id']?.toString() ?? json['id']?.toString() ?? '',
       title: json['name'] ?? json['title'] ?? 'Unknown Product',
-      brandName: json['category'] ?? json['brand'] ?? json['brandName'] ?? 'BAETOWN',
+      brandName: json['brand'] ?? json['brandName'] ?? 'BAETOWN',
       description: json['description']?.toString() ?? '',
       category: json['category']?.toString() ?? '',
       price: (json['price'] ?? 0).toDouble(),
@@ -78,17 +82,22 @@ class ProductModel {
       stockQuantity: json['stock'] ?? json['stockQuantity'] ?? 0,
       maxOrderQuantity: json['maxOrderQuantity'] ?? 5,
       isOutOfStock: json['isOutOfStock'] ?? (json['stock'] ?? 0) <= 0,
-      image: imagesList.isNotEmpty ? imagesList.first : '',
-      images: imagesList,
+
+      // --- THIS IS THE FIX ---
+      // Use the first image if it exists, otherwise use the placeholder
+      image: imagesList.isNotEmpty ? imagesList.first : _placeholderImage,
+
+      images: imagesList.isNotEmpty ? imagesList : [_placeholderImage], // Show placeholder if no images
+
       isOnSale: json['isOnSale'] ?? false,
       isPopular: json['isPopular'] ?? false,
       isBestSeller: json['isBestSeller'] ?? false,
       isFlashSale: json['isFlashSale'] ?? false,
-      flashSaleEnd: json['flashSaleEnd'] != null 
+      flashSaleEnd: json['flashSaleEnd'] != null
           ? DateTime.tryParse(json['flashSaleEnd'].toString())
           : null,
     );
-    
+
     print('🔍 ProductModel.fromApi result - ID: ${result.productId}, Title: ${result.title}, Images: ${result.images.length}');
     return result;
   }
@@ -102,12 +111,12 @@ class ProductModel {
       'price': price,
       'stock': stockQuantity,
     };
-    
-    // Only include images if they exist
-    if (images.isNotEmpty) {
+
+    // Only send images if they are not the placeholder
+    if (images.isNotEmpty && images.first != _placeholderImage) {
       result['images'] = images;
     }
-    
+
     return result;
   }
 
@@ -135,40 +144,56 @@ class ProductModel {
     };
   }
 
-  // Create from JSON (local storage)
   factory ProductModel.fromJson(Map<String, dynamic> json) {
+    // Helper to safely parse image lists
+    List<String> _parseImages(dynamic imageData) {
+      if (imageData == null) return [];
+      if (imageData is List) {
+        return imageData
+            .map((img) => img.toString())
+            .whereType<String>()
+            .toList();
+      }
+      if (imageData is String) return [imageData];
+      return [];
+    }
+
+    final imagesList = _parseImages(json['images']);
+
     return ProductModel(
-      productId: json['id'],
+      productId: json['productId']?.toString() ??
+          json['_id']?.toString() ??
+          json['id']?.toString() ??
+          '',
+
       title: json['title'] ?? '',
       brandName: json['brandName'] ?? 'BAETOWN',
       description: json['description'] ?? '',
       category: json['category'] ?? '',
-      price: (json['price'] ?? 0).toDouble(),
-      priceAfetDiscount: json['priceAfetDiscount']?.toDouble(),
-      dicountpercent: json['dicountpercent']?.toInt(),
-      stockQuantity: json['stockQuantity'] ?? 0,
-      maxOrderQuantity: json['maxOrderQuantity'] ?? 5,
+      price: (json['price'] as num? ?? 0).toDouble(),
+      stockQuantity: (json['stockQuantity'] as num? ?? 0).toInt(),
+      maxOrderQuantity: (json['maxOrderQuantity'] as num? ?? 5).toInt(),
       isOutOfStock: json['isOutOfStock'] ?? false,
-      image: json['image'] ?? '',
-    images: json['images'] != null
-      ? (json['images'] is List
-        ? (json['images'] as List)
-          .map((img) => img is String ? img : (img is Map<String, dynamic> ? (img['url'] ?? '') : ''))
-          .whereType<String>()
-          .toList()
-        : [json['image'] ?? ''])
-      : [json['image'] ?? ''],
+
+      // --- THIS IS THE FIX ---
+      image: json['image'] != null && json['image'].toString().isNotEmpty
+          ? json['image']
+          : _placeholderImage,
+      images: imagesList.isNotEmpty ? imagesList : [_placeholderImage],
+
+      // Nullable fields
+      priceAfetDiscount: (json['priceAfetDiscount'] as num?)?.toDouble(),
+      dicountpercent: (json['dicountpercent'] as num?)?.toInt(),
       isOnSale: json['isOnSale'],
       isPopular: json['isPopular'],
       isBestSeller: json['isBestSeller'],
       isFlashSale: json['isFlashSale'],
-      flashSaleEnd: json['flashSaleEnd'] != null 
+      flashSaleEnd: json['flashSaleEnd'] != null
           ? DateTime.tryParse(json['flashSaleEnd'].toString())
           : null,
     );
   }
 
-  // Add missing methods
   int getMaxAllowedQuantity() {
     return maxOrderQuantity;
   }

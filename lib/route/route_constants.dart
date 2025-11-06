@@ -62,3 +62,5 @@ const String thanksForOrderScreenRoute = "thanks_order";
 const String adminLoginScreenRoute = "admin_login";
 const String adminPanelScreenRoute = "admin_panel";
 const String inventoryManagementScreenRoute = "inventory_management";
+const String onboarding= "onboarding";
+const String kitDetailsRoute ="kitDetailsRoute";

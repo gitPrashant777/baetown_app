@@ -31,3 +31,4 @@ export '/screens/user_info/views/user_info_screen.dart';
 export '/screens/admin/admin_login_screen.dart';
 export '/screens/admin/views/admin_panel_screen.dart';
 export '/screens/admin/views/inventory_management_screen.dart';
+export 'package:shop/screens/Onboarding/view/MyKitScreen.dart';

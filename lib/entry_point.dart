@@ -1,8 +1,10 @@
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:provider/provider.dart'; // <-- 1. ADD THIS IMPORT
 import 'package:shop/constants.dart';
 import 'package:shop/route/screen_export.dart';
+import 'package:shop/screens/Onboarding/view/MyKitScreen.dart';
 import 'package:shop/services/cart_service.dart';
 
 class EntryPoint extends StatefulWidget {
@@ -13,68 +15,72 @@ class EntryPoint extends StatefulWidget {
 }
 
 class _EntryPointState extends State<EntryPoint> {
-  final CartService _cartService = CartService();
+  // --- 2. REMOVE the local CartService instance ---
+  // final CartService _cartService = CartService(); // <-- DELETED
+
   final List _pages = const [
     HomeScreen(),
+    MyKitScreen(),
     DiscoverScreen(),
     NotificationsScreen(),
     ProfileScreen(),
   ];
   int _currentIndex = 0;
 
-  @override
-  void initState() {
-    super.initState();
-    _cartService.addListener(_onCartChanged);
-  }
-
-  @override
-  void dispose() {
-    _cartService.removeListener(_onCartChanged);
-    super.dispose();
-  }
-
-  void _onCartChanged() {
-    setState(() {});
-  }
+  // --- 3. REMOVE initState, dispose, and _onCartChanged ---
+  // They are no longer needed because the Consumer widget handles updates.
+  // @override
+  // void initState() { ... } // <-- DELETED
+  //
+  // @override
+  // void dispose() { ... } // <-- DELETED
+  //
+  // void _onCartChanged() { ... } // <-- DELETED
 
   Widget _buildCartIcon(bool isActive) {
-    int cartCount = _cartService.items.length;
-    Color? iconColor = isActive ? primaryColor : Theme.of(context).textTheme.bodyLarge!.color!;
+    // --- 4. WRAP with Consumer<CartService> ---
+    // This listens to the shared CartService from main.dart
+    return Consumer<CartService>(
+      builder: (context, cartService, child) {
+        // Get the count from the service
+        int cartCount = cartService.itemCount;
+        Color? iconColor = isActive ? primaryColor : Theme.of(context).textTheme.bodyLarge!.color!;
 
-    return Stack(
-      children: [
-        SvgPicture.asset(
-          "assets/icons/Bag.svg",
-          height: 24,
-          colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
-        ),
-        if (cartCount > 0)
-          Positioned(
-            right: 0,
-            top: 0,
-            child: Container(
-              padding: const EdgeInsets.all(2),
-              decoration: BoxDecoration(
-                color: Colors.red,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              constraints: const BoxConstraints(
-                minWidth: 16,
-                minHeight: 16,
-              ),
-              child: Text(
-                cartCount > 99 ? '99+' : cartCount.toString(),
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 10,
-                  fontWeight: FontWeight.bold,
-                ),
-                textAlign: TextAlign.center,
-              ),
+        return Stack(
+          children: [
+            SvgPicture.asset(
+              "assets/icons/Bag.svg",
+              height: 24,
+              colorFilter: ColorFilter.mode(iconColor, BlendMode.srcIn),
             ),
-          ),
-      ],
+            if (cartCount > 0)
+              Positioned(
+                right: 0,
+                top: 0,
+                child: Container(
+                  padding: const EdgeInsets.all(2),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  constraints: const BoxConstraints(
+                    minWidth: 16,
+                    minHeight: 16,
+                  ),
+                  child: Text(
+                    cartCount > 99 ? '99+' : cartCount.toString(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 
@@ -95,6 +101,7 @@ class _EntryPointState extends State<EntryPoint> {
     return PopScope(
         canPop: false, // Prevent default back behavior
         onPopInvoked: (didPop) async {
+          // ... (PopScope code is unchanged) ...
           if (didPop) return;
 
           // Show exit confirmation dialog
@@ -123,9 +130,7 @@ class _EntryPointState extends State<EntryPoint> {
         },
         child: Scaffold(
           appBar: AppBar(
-            // pinned: true,
-            // floating: true,
-            // snap: true,
+            // ... (AppBar code is unchanged) ...
             backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             leading: const SizedBox(),
             leadingWidth: 0,
@@ -165,12 +170,12 @@ class _EntryPointState extends State<EntryPoint> {
                 onPressed: () {
                   Navigator.pushNamed(context, cartScreenRoute);
                 },
-                icon: _buildCartIcon(false),
+                icon: _buildCartIcon(false), // This now works
               ),
             ],
           ),
-          // body: _pages[_currentIndex],
           body: PageTransitionSwitcher(
+            // ... (Body code is unchanged) ...
             duration: defaultDuration,
             transitionBuilder: (child, animation, secondAnimation) {
               return FadeThroughTransition(
@@ -182,6 +187,7 @@ class _EntryPointState extends State<EntryPoint> {
             child: _pages[_currentIndex],
           ),
           bottomNavigationBar: Container(
+            // ... (BottomNavigationBar code is unchanged) ...
             padding: const EdgeInsets.only(top: defaultPadding / 2),
             color: Theme.of(context).brightness == Brightness.light
                 ? Colors.white
@@ -199,21 +205,32 @@ class _EntryPointState extends State<EntryPoint> {
                   ? Colors.white
                   : const Color(0xFF101015),
               type: BottomNavigationBarType.fixed,
-              // selectedLabelStyle: TextStyle(color: primaryColor),
               selectedFontSize: 12,
               selectedItemColor: primaryColor,
               unselectedItemColor: Theme.of(context).iconTheme.color!.withOpacity(0.6),
+
               items: [
                 BottomNavigationBarItem(
                   icon: svgIcon("assets/icons/Shop.svg"),
                   activeIcon:
-                      svgIcon("assets/icons/Shop.svg", color: primaryColor),
+                  svgIcon("assets/icons/Shop.svg", color: primaryColor),
                   label: "Shop",
+                ),
+                BottomNavigationBarItem(
+                  icon: Icon(
+                    Icons.medical_services_outlined,
+                    color: Theme.of(context).iconTheme.color!.withOpacity(0.6),
+                  ),
+                  activeIcon: Icon(
+                    Icons.medical_services,
+                    color: primaryColor,
+                  ),
+                  label: "My Kit",
                 ),
                 BottomNavigationBarItem(
                   icon: svgIcon("assets/icons/Category.svg"),
                   activeIcon:
-                      svgIcon("assets/icons/Category.svg", color: primaryColor),
+                  svgIcon("assets/icons/Category.svg", color: primaryColor),
                   label: "Discover",
                 ),
                 BottomNavigationBarItem(
@@ -230,12 +247,12 @@ class _EntryPointState extends State<EntryPoint> {
                 BottomNavigationBarItem(
                   icon: svgIcon("assets/icons/Profile.svg"),
                   activeIcon:
-                      svgIcon("assets/icons/Profile.svg", color: primaryColor),
+                  svgIcon("assets/icons/Profile.svg", color: primaryColor),
                   label: "Profile",
                 ),
               ],
             ),
           ),
-        )); // PopScope closing
+        ));
   }
 }

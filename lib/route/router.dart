@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shop/entry_point.dart';
+import 'package:shop/screens/Onboarding/view/onboarding_flow_manager.dart';
 import 'package:shop/screens/auth/views/terms_of_services_screen.dart';
 import 'package:shop/models/product_model.dart';
 
@@ -109,6 +110,10 @@ Route<dynamic> generateRoute(RouteSettings settings) {
     case homeScreenRoute:
       return MaterialPageRoute(
         builder: (context) => const HomeScreen(),
+      );
+    case kitDetailsRoute:
+      return MaterialPageRoute(
+        builder: (context) =>  MyKitScreen(),
       );
     // case brandScreenRoute:
     //   return MaterialPageRoute(
@@ -258,9 +263,14 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return MaterialPageRoute(
         builder: (context) => const AdminPanelScreen(),
       );
+    case onboarding:
+      return MaterialPageRoute(builder: (context)=> OnboardingFlowManager(),
+  );
+
     case inventoryManagementScreenRoute:
       return MaterialPageRoute(
         builder: (context) => const InventoryManagementScreen(),
+        
       );
     // case paymentMethodScreenRoute:
     //   return MaterialPageRoute(

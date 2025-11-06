@@ -77,7 +77,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
   void _loadProductData() {
     final product = widget.product!;
     _nameController.text = product.title;
-    _descriptionController.text = product.brandName; // Using brandName as description for now
+    _descriptionController.text = product.brandName!; // Using brandName as description for now
     _selectedCategory = _categories.contains(product.brandName) ? product.brandName : 'Other';
     _priceController.text = product.price.toString();
     _salePriceController.text = product.priceAfetDiscount?.toString() ?? '';

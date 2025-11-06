@@ -1,155 +1,79 @@
-import 'package:flutter/material.dart';
-import 'package:shop/components/network_image_with_loader.dart';
-import 'package:shop/constants.dart';
-import 'package:shop/models/cart_item_model.dart';
-import 'package:shop/services/cart_service.dart';
+// lib/models/cart_item_model.dart
+import '../models/product_model.dart';
 
-class CartItemWidget extends StatelessWidget {
-  final CartItem cartItem;
-  final int index;
-  final VoidCallback onRemove;
-  final Future<void> Function(int newQuantity) onUpdateQuantity;
+class CartItem {
+  final String? cartItemId;
+  final ProductModel product;
+  int quantity;
+  final String? selectedSize;
+  final String? selectedColor;
 
-  const CartItemWidget({
-    super.key,
-    required this.cartItem,
-    required this.index,
-    required this.onRemove,
-    required this.onUpdateQuantity,
+  CartItem({
+    required this.product,
+    this.quantity = 1,
+    this.selectedSize,
+    this.selectedColor,
+    this.cartItemId,
   });
 
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.symmetric(
-        horizontal: defaultPadding,
-        vertical: defaultPadding / 2,
-      ),
-      padding: const EdgeInsets.all(defaultPadding),
-      decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
-        borderRadius: BorderRadius.circular(defaultBorderRadious),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.1),
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Product Image
-          if (cartItem.product.images.isNotEmpty && cartItem.product.images.first.isNotEmpty)
-            SizedBox(
-              width: 80,
-              height: 80,
-              child: NetworkImageWithLoader(
-                cartItem.product.images.first,
-                radius: defaultBorderRadious,
-              ),
-            ),
-          const SizedBox(width: defaultPadding),
+  factory CartItem.fromJson(Map<String, dynamic> json) {
+    // The API response may have product info nested under 'productId' or 'product'.
+    final productJson = json['productId'] is Map<String, dynamic>
+        ? json['productId']
+        : (json['product'] is Map<String, dynamic>
+        ? json['product']
+        : <String, dynamic>{});
 
-          // Product Details
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  cartItem.product.title ?? '',
-                  style: Theme.of(context).textTheme.titleMedium,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  cartItem.product.description ?? '',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[600],
-                  ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  'Category: ${cartItem.product.category ?? ''}',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Colors.grey[500],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text(
-                      '₹${cartItem.product.priceAfetDiscount ?? cartItem.product.price}',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: primaryColor,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const Spacer(),
-                    // Quantity Controls
-                    Container(
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey[300]!),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          IconButton(
-                            onPressed: () async {
-                              if (cartItem.quantity > 1) {
-                                await onUpdateQuantity(cartItem.quantity - 1);
-                              }
-                            },
-                            icon: const Icon(Icons.remove, size: 20),
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12),
-                            child: Text(
-                              '${cartItem.quantity}',
-                              style: Theme.of(context).textTheme.titleMedium,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () async {
-                              final maxAllowed = cartItem.product.getMaxAllowedQuantity();
-                              if (cartItem.quantity < maxAllowed) {
-                                await onUpdateQuantity(cartItem.quantity + 1);
-                              }
-                            },
-                            icon: const Icon(Icons.add, size: 20),
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
-                            ),
-                          ),
-                          IconButton(
-                            onPressed: () async {
-                              onRemove();
-                            },
-                            icon: const Icon(Icons.delete, size: 20, color: Colors.red),
-                            constraints: const BoxConstraints(
-                              minWidth: 32,
-                              minHeight: 32,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
+    // Ensure the product has an ID - extract from the nested product or use the reference ID
+    if (productJson is Map<String, dynamic>) {
+      if (!productJson.containsKey('_id') && !productJson.containsKey('id')) {
+        // If the nested product doesn't have an ID, use the productId reference
+        if (json['productId'] is String) {
+          productJson['_id'] = json['productId'];
+        }
+      }
+      // Always set productId field for ProductModel
+      if (json['productId'] is String) {
+        productJson['productId'] = json['productId'];
+      } else if (productJson['_id'] != null) {
+        productJson['productId'] = productJson['_id'];
+      }
+    }
+
+    return CartItem(
+      // --- THIS IS THE FIX ---
+      // Make parsing the cart item ID more robust
+      cartItemId: json['_id']?.toString() ?? json['id']?.toString(),
+
+      product: ProductModel.fromJson(productJson),
+      quantity: json['quantity'] ?? 1,
+      selectedSize: json['selectedSize'],
+      selectedColor: json['selectedColor'],
+    );
+  }
+
+  // Get the product ID for API operations
+  String? get productId {
+    return product.productId ?? cartItemId;
+  }
+
+  double get totalPrice {
+    final price = product.priceAfetDiscount ?? product.price;
+    return price * quantity;
+  }
+
+  CartItem copyWith({
+    ProductModel? product,
+    int? quantity,
+    String? selectedSize,
+    String? selectedColor,
+  }) {
+    return CartItem(
+      cartItemId: cartItemId,
+      product: product ?? this.product,
+      quantity: quantity ?? this.quantity,
+      selectedSize: selectedSize ?? this.selectedSize,
+      selectedColor: selectedColor ?? this.selectedColor,
     );
   }
 }

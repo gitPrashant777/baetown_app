@@ -6,6 +6,8 @@ import 'package:shop/services/api_service.dart';
 class ReviewsApiService {
   final ApiService _apiService = ApiService();
 
+  ReviewsApiService(ApiService apiService);
+
   // Get all reviews for a product
   Future<List<Map<String, dynamic>>> getProductReviews(String productId) async {
     try {

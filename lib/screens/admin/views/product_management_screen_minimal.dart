@@ -39,7 +39,7 @@ class _ProductManagementScreenMinimalState extends State<ProductManagementScreen
   void _loadProductData() {
     final product = widget.product!;
     _titleController.text = product.title;
-    _brandController.text = product.brandName;
+    _brandController.text = product.brandName!;
     _priceController.text = product.price.toString();
     _stockController.text = product.stockQuantity.toString();
   }

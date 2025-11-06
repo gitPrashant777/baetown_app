@@ -135,7 +135,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
           // Navigate to home screen
           Navigator.pushNamedAndRemoveUntil(
             context, 
-            entryPointScreenRoute,
+            onboarding,
             (route) => false,
           );
         } else {

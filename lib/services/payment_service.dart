@@ -1,16 +1,31 @@
 import 'package:razorpay_flutter/razorpay_flutter.dart';
 import 'package:flutter/material.dart';
+import '../models/cart_item_model.dart'; // <-- 1. IMPORT
 import '../screens/checkout/views/payment_success_screen.dart';
-import '../services/cart_service.dart';
+import 'package:shop/services/cart_wishlist_api_service.dart'; // <-- 2. IMPORT
+import 'package:shop/services/orders_api_service.dart'; // <-- 3. IMPORT
 
 class PaymentService {
   static Razorpay? _razorpay;
   static BuildContext? _context;
   static double _currentAmount = 0.0;
 
-  // Initialize Razorpay
-  static void initialize(BuildContext context) {
+  // --- 4. ADD SERVICE REFS & DATA ---
+  static OrdersApiService? _ordersApi;
+  static CartApiService? _cartApi;
+  static List<CartItem>? _cartItems;
+  static Map<String, dynamic>? _shippingInfo;
+
+  // --- 5. MODIFY initialize ---
+  static void initialize({
+    required BuildContext context,
+    required OrdersApiService ordersApi,
+    required CartApiService cartApi,
+  }) {
     _context = context;
+    _ordersApi = ordersApi;
+    _cartApi = cartApi;
+
     _razorpay ??= Razorpay();
     _razorpay!.on(Razorpay.EVENT_PAYMENT_SUCCESS, _handlePaymentSuccess);
     _razorpay!.on(Razorpay.EVENT_PAYMENT_ERROR, _handlePaymentError);
@@ -22,20 +37,29 @@ class PaymentService {
     _razorpay?.clear();
     _razorpay = null;
     _context = null;
+    _ordersApi = null;
+    _cartApi = null;
+    _cartItems = null;
+    _shippingInfo = null;
   }
 
-  // Start payment
+  // --- 6. MODIFY startPayment ---
   static void startPayment({
-    required double amount,
-    required String orderId,
+    required String key, // <-- From server
+    required double amount, // <-- From server
+    required String orderId, // <-- From server
+    required List<CartItem> cartItems, // <-- From cart screen
+    required Map<String, dynamic> shippingInfo, // <-- From cart screen
     String? customerName,
     String? customerEmail,
     String? customerContact,
   }) {
     _currentAmount = amount; // Store the amount for success screen
-    
+    _cartItems = cartItems; // Store cart items
+    _shippingInfo = shippingInfo; // Store shipping info
+
     var options = {
-      'key': 'rzp_test_1DP5mmOlF5G5ag', // Replace with your Razorpay API key
+      'key': key,
       'amount': (amount * 100).toInt(), // Amount in paise
       'name': 'Your Shop Name',
       'order_id': orderId,
@@ -63,16 +87,76 @@ class PaymentService {
     }
   }
 
-  // Handle successful payment
-  static void _handlePaymentSuccess(PaymentSuccessResponse response) {
-    _showSnackBar(
-      'Payment Successful! Payment ID: ${response.paymentId}',
-      Colors.green,
-    );
-    
-    // You can add your post-payment success logic here
-    // For example: update order status, clear cart, navigate to success page
-    _onPaymentSuccess(response);
+  // --- 7. MODIFY _handlePaymentSuccess (This is the most important part) ---
+  static void _handlePaymentSuccess(PaymentSuccessResponse response) async {
+    _showSnackBar('Payment Successful! Verifying...', Colors.green);
+
+    if (_ordersApi == null || _cartApi == null || _context == null || _cartItems == null || _shippingInfo == null) {
+      _showSnackBar('Error: Payment service not initialized properly.', Colors.red);
+      return;
+    }
+
+    try {
+      // 1. Verify the payment with your backend
+      final bool isVerified = await _ordersApi!.verifyPayment(
+        razorpayOrderId: response.orderId!,
+        razorpayPaymentId: response.paymentId!,
+        razorpaySignature: response.signature!,
+      );
+
+      if (isVerified) {
+        // 2. If verified, create the *final order* in your database
+
+        // Convert CartItems to the format your API needs
+        List<Map<String, dynamic>> orderItems = _cartItems!.map((item) {
+          return {
+            "name": item.product.title,
+            "price": item.product.priceAfetDiscount ?? item.product.price,
+            "quantity": item.quantity,
+            "image": item.product.image,
+            "product": item.product.productId,
+          };
+        }).toList();
+
+        // Calculate prices again (to be safe)
+        double itemsPrice = _cartItems!.fold(0.0, (sum, item) => sum + item.totalPrice);
+        double taxPrice = 0; // TODO: Calculate tax if needed
+        double shippingPrice = 0; // TODO: Calculate shipping if needed
+        double totalPrice = itemsPrice + taxPrice + shippingPrice;
+
+        await _ordersApi!.createOrder(
+          shippingInfo: _shippingInfo!,
+          orderItems: orderItems,
+          paymentInfo: {
+            "id": response.paymentId,
+            "status": "succeeded",
+          },
+          itemsPrice: itemsPrice,
+          taxPrice: taxPrice,
+          shippingPrice: shippingPrice,
+          totalPrice: totalPrice,
+        );
+
+        // 3. Clear the cart on the backend
+        await _cartApi!.clearCart();
+
+        // 4. Navigate to success screen
+        Navigator.of(_context!).pushAndRemoveUntil(
+          MaterialPageRoute(
+            builder: (context) => PaymentSuccessScreen(
+              paymentId: response.paymentId ?? '',
+              orderId: response.orderId ?? '',
+              amount: _currentAmount,
+            ),
+          ),
+              (route) => false, // Clear all routes behind it
+        );
+      } else {
+        _showSnackBar('Payment verification failed. Contact support.', Colors.red);
+      }
+    } catch (e) {
+      _showSnackBar('Error during payment verification: $e', Colors.red);
+    }
   }
 
   // Handle payment error
@@ -81,8 +165,6 @@ class PaymentService {
       'Payment Failed: ${response.message}',
       Colors.red,
     );
-    
-    // You can add your payment failure logic here
     _onPaymentError(response);
   }
 
@@ -114,41 +196,11 @@ class PaymentService {
     }
   }
 
-  // Custom callback for payment success
-  static void _onPaymentSuccess(PaymentSuccessResponse response) {
-    // Navigate to payment success screen
-    if (_context != null) {
-      Navigator.of(_context!).push(
-        MaterialPageRoute(
-          builder: (context) => PaymentSuccessScreen(
-            paymentId: response.paymentId ?? '',
-            orderId: response.orderId ?? '',
-            amount: _currentAmount,
-          ),
-        ),
-      );
-    }
-    
-    print('Payment Success: ${response.paymentId}');
-    print('Order ID: ${response.orderId}');
-    print('Signature: ${response.signature}');
-  }
-
   // Custom callback for payment error
   static void _onPaymentError(PaymentFailureResponse response) {
-    // Add your custom logic here
-    // For example:
-    // - Log error
-    // - Show retry option
-    // - Update analytics
-    
     print('Payment Error: ${response.code}');
     print('Message: ${response.message}');
   }
 
-  // Generate a simple order ID (you should use your backend to generate this)
-  static String generateOrderId() {
-    final timestamp = DateTime.now().millisecondsSinceEpoch;
-    return 'order_$timestamp';
-  }
+// (generateOrderId is removed as it's now done on the backend)
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
-import '../services/cloudinary_service.dart';
-import '../services/cloudinary_config.dart';
+
+import '../../../services/cloudinary_config.dart';
+import '../../../services/cloudinary_service.dart';
 
 class CloudinaryTestScreen extends StatefulWidget {
   const CloudinaryTestScreen({Key? key}) : super(key: key);

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
+import 'package:flutter_svg/svg.dart';
+import 'package:provider/provider.dart'; // <-- 1. ADD IMPORT
 import 'package:shop/components/cart_button.dart';
 import 'package:shop/components/custom_modal_bottom_sheet.dart';
 import 'package:shop/components/network_image_with_loader.dart';
@@ -10,6 +11,7 @@ import 'package:shop/screens/product/views/components/product_list_tile.dart';
 import 'package:shop/screens/product/views/location_permission_store_availability_screen.dart';
 import 'package:shop/screens/product/views/size_guide_screen.dart';
 import 'package:shop/services/cart_service.dart';
+import 'package:shop/services/cart_wishlist_api_service.dart'; // <-- 2. ADD IMPORT
 import 'components/product_quantity.dart';
 import 'components/selected_colors.dart';
 import 'components/selected_size.dart';
@@ -36,38 +38,48 @@ class _ProductBuyNowScreenState extends State<ProductBuyNowScreen> {
     const Color(0xFF9FE1DD),
     const Color(0xFFC482DB),
   ];
-  
-  // Use the product passed from the details screen
+
   late ProductModel currentProduct;
-  
+
   @override
   void initState() {
     super.initState();
-    // Use the actual product passed from the previous screen
     currentProduct = widget.product;
   }
-  
+
   double get totalPrice => (currentProduct.priceAfetDiscount ?? currentProduct.price) * quantity;
 
   @override
   Widget build(BuildContext context) {
+    // --- 3. GET SERVICES FROM PROVIDER ---
+    final cartService = context.watch<CartService>();
+    final bool isLoading = cartService.isLoading;
+
     return Scaffold(
       bottomNavigationBar: CartButton(
         price: totalPrice,
         title: "Add to cart",
         subTitle: "Total price",
-        press: () {
-          // Add item to cart with selected options
-          for (int i = 0; i < quantity; i++) {
-            CartService().addToCart(currentProduct);
-          }
-          
-          // Show success message
-          customModalBottomSheet(
-            context,
-            isDismissible: false,
-            child: const AddedToCartMessageScreen(),
-          );
+
+        // --- 4. FIX THE PRESS CALLBACK ---
+        // It's no longer async, and it uses the 'cartService' instance
+        press: isLoading ? null : () {
+          // Call the async method from the service
+          cartService.addToCart(
+            currentProduct,
+            quantity: quantity, // Pass the selected quantity
+            size: sizes[selectedSizeIndex], // Pass selected size
+            color: colors[selectedColorIndex].value.toString(), // Pass selected color
+          ).then((_) {
+            // This part runs *after* the async call finishes
+            if (mounted) {
+              customModalBottomSheet(
+                context,
+                isDismissible: false,
+                child: const AddedToCartMessageScreen(),
+              );
+            }
+          });
         },
       ),
       body: Column(
@@ -83,19 +95,27 @@ class _ProductBuyNowScreenState extends State<ProductBuyNowScreen> {
                   currentProduct.title,
                   style: Theme.of(context).textTheme.titleSmall,
                 ),
-                _WishlistIconButton(),
+                // --- 5. PASS PRODUCT ID TO WISHLIST BUTTON ---
+                _WishlistIconButton(
+                  productId: currentProduct.productId ?? '',
+                ),
               ],
             ),
           ),
           Expanded(
             child: CustomScrollView(
               slivers: [
-                const SliverToBoxAdapter(
+                SliverToBoxAdapter(
                   child: Padding(
-                    padding: EdgeInsets.symmetric(horizontal: defaultPadding),
+                    padding: const EdgeInsets.symmetric(horizontal: defaultPadding),
                     child: AspectRatio(
                       aspectRatio: 1.05,
-                      child: NetworkImageWithLoader(productDemoImg1),
+                      // --- 6. FIX IMAGE - Use product's actual image ---
+                      child: NetworkImageWithLoader(
+                        currentProduct.image.isNotEmpty
+                            ? currentProduct.image
+                            : productDemoImg1, // Fallback
+                      ),
                     ),
                   ),
                 ),
@@ -120,33 +140,33 @@ class _ProductBuyNowScreenState extends State<ProductBuyNowScreen> {
                                   vertical: defaultPadding / 4,
                                 ),
                                 decoration: BoxDecoration(
-                                  color: currentProduct.stockQuantity > 10 
+                                  color: currentProduct.stockQuantity > 10
                                       ? Colors.green.withOpacity(0.1)
                                       : currentProduct.stockQuantity > 0
-                                          ? Colors.orange.withOpacity(0.1)
-                                          : Colors.red.withOpacity(0.1),
+                                      ? Colors.orange.withOpacity(0.1)
+                                      : Colors.red.withOpacity(0.1),
                                   borderRadius: BorderRadius.circular(4),
                                   border: Border.all(
-                                    color: currentProduct.stockQuantity > 10 
+                                    color: currentProduct.stockQuantity > 10
                                         ? Colors.green
                                         : currentProduct.stockQuantity > 0
-                                            ? Colors.orange
-                                            : Colors.red,
+                                        ? Colors.orange
+                                        : Colors.red,
                                     width: 1,
                                   ),
                                 ),
                                 child: Text(
-                                  currentProduct.stockQuantity > 0 
+                                  currentProduct.stockQuantity > 0
                                       ? "Available: ${currentProduct.stockQuantity} units"
                                       : "Out of Stock",
                                   style: TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w500,
-                                    color: currentProduct.stockQuantity > 10 
+                                    color: currentProduct.stockQuantity > 10
                                         ? Colors.green
                                         : currentProduct.stockQuantity > 0
-                                            ? Colors.orange
-                                            : Colors.red,
+                                        ? Colors.orange
+                                        : Colors.red,
                                   ),
                                 ),
                               ),
@@ -157,7 +177,7 @@ class _ProductBuyNowScreenState extends State<ProductBuyNowScreen> {
                           numOfItem: quantity,
                           onIncrement: () {
                             setState(() {
-                              if (quantity < currentProduct.stockQuantity && 
+                              if (quantity < currentProduct.stockQuantity &&
                                   quantity < currentProduct.maxOrderQuantity) {
                                 quantity++;
                               }
@@ -215,7 +235,7 @@ class _ProductBuyNowScreenState extends State<ProductBuyNowScreen> {
                 ),
                 SliverPadding(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: defaultPadding),
+                  const EdgeInsets.symmetric(horizontal: defaultPadding),
                   sliver: SliverToBoxAdapter(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -258,36 +278,82 @@ class _ProductBuyNowScreenState extends State<ProductBuyNowScreen> {
   }
 }
 
+// --- 7. REBUILT THE WISHLIST BUTTON ---
 class _WishlistIconButton extends StatefulWidget {
+  final String productId;
+  // It now requires a productId
+  const _WishlistIconButton({required this.productId});
+
   @override
   _WishlistIconButtonState createState() => _WishlistIconButtonState();
 }
 
 class _WishlistIconButtonState extends State<_WishlistIconButton> {
-  bool isInWishlist = false;
+  bool _isInWishlist = false;
+  bool _isLoading = false;
+  // Service will be fetched from Provider
+  late WishlistApiService _wishlistApi;
+
+  @override
+  void initState() {
+    super.initState();
+    // Get service from Provider
+    _wishlistApi = Provider.of<WishlistApiService>(context, listen: false);
+    _checkWishlist();
+  }
+
+  Future<void> _checkWishlist() async {
+    if (widget.productId.isEmpty) return; // Don't check if no ID
+    setState(() => _isLoading = true);
+    final isWish = await _wishlistApi.isInWishlist(widget.productId);
+    if (mounted) {
+      setState(() {
+        _isInWishlist = isWish;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _toggleWishlist() async {
+    if (widget.productId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Cannot wishlist this item'), backgroundColor: errorColor),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+    if (_isInWishlist) {
+      await _wishlistApi.removeFromWishlist(widget.productId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Removed from wishlist'), backgroundColor: errorColor),
+        );
+      }
+    } else {
+      await _wishlistApi.addToWishlist(widget.productId);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Added to wishlist'), backgroundColor: pinkColor),
+        );
+      }
+    }
+    // Re-check state from the server to be 100% sure
+    await _checkWishlist();
+  }
 
   @override
   Widget build(BuildContext context) {
     return IconButton(
-      onPressed: () {
-        setState(() {
-          isInWishlist = !isInWishlist;
-        });
-        // TODO: Add actual wishlist API call here
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              isInWishlist ? 'Added to wishlist' : 'Removed from wishlist',
-            ),
-            duration: Duration(milliseconds: 1000),
-          ),
-        );
-      },
-      icon: Icon(
-        isInWishlist ? Icons.favorite : Icons.favorite_border,
-        color: isInWishlist 
-          ? Colors.red 
-          : Theme.of(context).textTheme.bodyLarge!.color,
+      onPressed: _isLoading ? null : _toggleWishlist,
+      icon: _isLoading
+      // Show a loading spinner while checking/updating
+          ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+          : Icon(
+        _isInWishlist ? Icons.favorite : Icons.favorite_border,
+        color: _isInWishlist
+            ? Colors.red
+            : Theme.of(context).textTheme.bodyLarge!.color,
       ),
     );
   }

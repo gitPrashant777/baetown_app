@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
-import 'package:flutter_svg/svg.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/models/product_model.dart';
 import 'package:shop/models/user_session.dart';
 import 'package:shop/services/products_api_service.dart';
 import 'package:shop/services/auth_api_service.dart';
 import 'package:shop/services/api_service.dart';
-import 'package:http/http.dart' as http;
 import 'dart:io';
 import 'dart:convert';
-import 'dart:typed_data';
 
 class ProductManagementScreen extends StatefulWidget {
-  final ProductModel? product; // null for new product, existing product for edit
+  final ProductModel? product;
   final Function(ProductModel)? onProductSaved;
 
   const ProductManagementScreen({
@@ -35,22 +32,23 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
   final _salePriceController = TextEditingController();
   final _discountController = TextEditingController();
   final _stockController = TextEditingController();
-  
+  final _maxOrderController = TextEditingController();
+
   final ProductsApiService _productsApiService = ProductsApiService();
   final AuthApiService _authApiService = AuthApiService();
   final ApiService _apiService = ApiService();
-  
+
   List<String> _selectedImages = [];
   List<File> _newImageFiles = [];
   bool _isOnSale = false;
   bool _isPopular = false;
   bool _isBestSeller = false;
   bool _isFlashSale = false;
-  DateTime? _flashSaleEnd;
+  bool _isOutOfStock = false;
   bool _isLoading = false;
+  DateTime? _flashSaleEnd;
   final ImagePicker _picker = ImagePicker();
 
-  // Predefined categories for dropdown
   final List<String> _categories = [
     'Electronics',
     'Clothing',
@@ -77,17 +75,20 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
   void _loadProductData() {
     final product = widget.product!;
     _nameController.text = product.title;
-    _descriptionController.text = product.brandName; // Using brandName as description for now
-    _selectedCategory = _categories.contains(product.brandName) ? product.brandName : 'Other';
+    _descriptionController.text = product.description;
+    _selectedCategory = _categories.contains(product.category) ? product.category : 'Other';
     _priceController.text = product.price.toString();
     _salePriceController.text = product.priceAfetDiscount?.toString() ?? '';
     _discountController.text = product.dicountpercent?.toString() ?? '';
     _stockController.text = product.stockQuantity.toString();
+    _maxOrderController.text = product.maxOrderQuantity.toString();
     _selectedImages = List.from(product.images);
-    _isOnSale = product.priceAfetDiscount != null && product.priceAfetDiscount! < product.price;
-    _isPopular = false; // These would need to be added to ProductModel
-    _isBestSeller = false;
-    _isFlashSale = false;
+    _isOutOfStock = product.isOutOfStock;
+    _isOnSale = product.isOnSale ?? false;
+    _isPopular = product.isPopular ?? false;
+    _isBestSeller = product.isBestSeller ?? false;
+    _isFlashSale = product.isFlashSale ?? false;
+    _flashSaleEnd = product.flashSaleEnd;
   }
 
   Future<void> _pickImages() async {
@@ -97,12 +98,12 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         maxWidth: 1000,
         maxHeight: 1000,
       );
-      
+
       if (images.isNotEmpty) {
         setState(() {
           for (var image in images) {
             _newImageFiles.add(File(image.path));
-            _selectedImages.add(image.path); // For display purposes
+            _selectedImages.add(image.path);
           }
         });
       }
@@ -121,7 +122,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         maxWidth: 1000,
         maxHeight: 1000,
       );
-      
+
       if (image != null) {
         setState(() {
           _newImageFiles.add(File(image.path));
@@ -140,236 +141,81 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
       if (index < _selectedImages.length) {
         String imagePath = _selectedImages[index];
         _selectedImages.removeAt(index);
-        
-        // Also remove from new files if it's a new file
         _newImageFiles.removeWhere((file) => file.path == imagePath);
       }
     });
   }
 
   void _saveProduct() async {
-    // Temporarily bypass form validation to isolate the range error
-    // if (_formKey.currentState!.validate()) {
-      // Temporarily disable image requirement for testing
-      // if (_selectedImages.isEmpty) {
-      //   ScaffoldMessenger.of(context).showSnackBar(
-      //     const SnackBar(content: Text('Please select at least one image')),
-      //   );
-      //   return;
-      // }
+    if (!_formKey.currentState!.validate()) return;
 
-      setState(() => _isLoading = true);
+    setState(() => _isLoading = true);
 
-      try {
-        // Add debugging for input values
-        print('🔍 Debug - Form values:');
-        print('  Title: "${_titleController.text}"');
-        print('  Brand: "${_brandController.text}"');
-        print('  Price: "${_priceController.text}"');
-        print('  Discount Price: "${_discountPriceController.text}"');
-        print('  Stock: "${_stockController.text}"');
-        print('  Max Order: "${_maxOrderController.text}"');
-        
-        // Simplified admin authentication check - bypass local check and let backend validate
-        print('🔐 Checking for admin authentication...');
-        final currentToken = await _apiService.getAuthToken();
-        final userSession = await UserSession.getUserSession();
-        
-        // Debug user session and token
-        print('🔍 Debug auth details:');
-        print('  - Token exists: ${currentToken != null}');
-        print('  - Token length: ${currentToken?.length ?? 0}');
-        print('  - UserSession exists: ${userSession != null}');
-        print('  - UserSession: $userSession');
-        if (userSession != null && userSession['userData'] != null) {
-          print('  - User role: ${userSession['userData']['role']}');
-          print('  - Role type: ${userSession['userData']['role'].runtimeType}');
-          print('  - Role lowercase: ${userSession['userData']['role']?.toString().toLowerCase()}');
-        }
-        
-        // Only check if token exists, let backend validate admin role
-        if (currentToken == null) {
-          throw Exception('No authentication token found. Please login again.');
-        }
-        
-        print('✅ Token found, proceeding with API call...');
-        
-        // Temporarily bypass local admin role check - let backend handle it
-        // if (userSession == null || 
-        //     userSession['userData'] == null ||
-        //     userSession['userData']['role']?.toString().toLowerCase() != 'admin') {
-        //   throw Exception('Admin authentication required. Please log out and log back in as an administrator.');
-        // }
-        
-        // Basic token format validation
-        try {
-          final parts = currentToken.split('.');
-          if (parts.length != 3) {
-            throw Exception('Invalid token format');
-          }
-          
-          String payload = parts[1];
-          // Add padding for base64 decoding
-          switch (payload.length % 4) {
-            case 1: payload += '==='; break;
-            case 2: payload += '=='; break;
-            case 3: payload += '='; break;
-          }
-          
-          final decoded = json.decode(utf8.decode(base64.decode(payload)));
-          final exp = decoded['exp'];
-          final now = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-          
-          if (exp != null && exp < now) {
-            throw Exception('Authentication token has expired. Please log out and log back in.');
-          }
-          
-          print('✅ Admin authentication verified');
-        } catch (e) {
-          throw Exception('Invalid authentication token. Please log out and log back in. Error: $e');
-        }
+    try {
+      final currentToken = await _apiService.getAuthToken();
+      if (currentToken == null) throw Exception('No authentication token found.');
 
-        // Calculate discount percentage if both prices are provided
-        int? discountPercent;
-        double? discountPrice;
-        print('🔍 Debug - Calculating discount...');
-        if (_discountPriceController.text.isNotEmpty) {
-          print('  Parsing discount price: "${_discountPriceController.text}"');
-          discountPrice = double.parse(_discountPriceController.text);
-          print('  Parsing original price: "${_priceController.text}"');
-          double originalPrice = double.parse(_priceController.text);
-          if (discountPrice < originalPrice) {
-            discountPercent = ((originalPrice - discountPrice) / originalPrice * 100).round();
-            print('  Calculated discount percent: $discountPercent');
-          }
-        }
-
-        print('🔍 Debug - Creating ProductModel...');
-        ProductModel product;
-        try {
-          product = ProductModel(
-            image: _selectedImages.isNotEmpty ? _selectedImages.first : '', // Use empty string if no images
-            images: _selectedImages,
-            title: _titleController.text,
-            brandName: _brandController.text,
-            price: double.parse(_priceController.text),
-            priceAfetDiscount: discountPrice,
-            dicountpercent: discountPercent,
-            stockQuantity: int.parse(_stockController.text),
-            maxOrderQuantity: int.parse(_maxOrderController.text),
-            isOutOfStock: _isOutOfStock,
-            productId: widget.product?.productId ?? DateTime.now().millisecondsSinceEpoch.toString(),
-          );
-          print('🔍 Debug - ProductModel created successfully!');
-        } catch (e) {
-          print('🚨 ERROR during ProductModel creation: $e');
-          throw e;
-        }
-
-        // Save product via API
-        print('🔍 Debug - About to call API...');
-        Map<String, dynamic> result;
-        if (widget.product == null) {
-          // Create new product
-          print('📦 Creating new product...');
-          print('🎯 DEBUG: About to call _productsApiService.createProduct(product)');
-          print('🎯 DEBUG: _productsApiService type: ${_productsApiService.runtimeType}');
-          print('🎯 DEBUG: product type: ${product.runtimeType}');
-          print('� DEBUG: Line 251 reached successfully');
-          print('�🔥🔥🔥 CALLING _productsApiService.createProduct(product) NOW!!! 🔥🔥🔥');
-          print('🔍 DEBUG: Line 253 reached - about to call method');
-          result = await _productsApiService.createProduct(product);
-          print('🔍 DEBUG: Method call completed - result received');
-          print('🔥🔥🔥 FINISHED calling _productsApiService.createProduct(product)!!! 🔥🔥🔥');
-          print('📦 API Response: $result');
-        } else {
-          // Update existing product
-          print('📝 Updating existing product...');
-          result = await _productsApiService.updateProduct(widget.product!.productId!, product);
-          print('📝 API Response: $result');
-        }
-        
-        // Check if the API call was successful
-        if (result['success'] != true) {
-          throw Exception(result['message'] ?? 'Failed to save product');
-        }
-        
-        print('✅ Product saved successfully via API!');
-        
-        widget.onProductSaved?.call(product);
-        
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(widget.product == null ? 'Product created successfully!' : 'Product updated successfully!'),
-              backgroundColor: successColor,
-            ),
-          );
-          Navigator.pop(context);
-        }
-      } catch (e) {
-        print('🚨 ERROR CAUGHT: $e');
-        print('🚨 ERROR TYPE: ${e.runtimeType}');
-        if (e is RangeError) {
-          print('🚨 RANGE ERROR DETAILS:');
-          print('  - Start: ${e.start}');
-          print('  - End: ${e.end}');
-          print('  - Value: ${e.invalidValue}');
-          print('  - Message: ${e.message}');
-          print('  - StackTrace will follow...');
-        }
-        setState(() => _isLoading = false);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error saving product: $e')),
-          );
+      // Calculate discount if applicable
+      int? discountPercent;
+      double? discountPrice;
+      if (_salePriceController.text.isNotEmpty) {
+        double originalPrice = double.parse(_priceController.text);
+        discountPrice = double.parse(_salePriceController.text);
+        if (discountPrice < originalPrice) {
+          discountPercent = ((originalPrice - discountPrice) / originalPrice * 100).round();
         }
       }
-    }
-  }
 
-  // Direct API call method
-  Future<Map<String, dynamic>> _createProductDirectAPI(Map<String, dynamic> productData, String token) async {
-    try {
-      final url = Uri.parse('https://mern-backend-t3h8.onrender.com/api/v1/admin/product');
-      
-      final headers = {
-        'Content-Type': 'application/json',
-        'Authorization': 'Bearer $token',
-      };
-      
-      print('🚀 Making direct API call to: $url');
-      print('📋 Headers: $headers');
-      print('📦 Body: ${jsonEncode(productData)}');
-      
-      final response = await http.post(
-        url,
-        headers: headers,
-        body: jsonEncode(productData),
+      final product = ProductModel(
+        productId: widget.product?.productId ?? DateTime.now().millisecondsSinceEpoch.toString(),
+        title: _nameController.text.trim(),
+        description: _descriptionController.text.trim(),
+        category: _selectedCategory ?? 'Other',
+        price: double.parse(_priceController.text),
+        priceAfetDiscount: discountPrice,
+        dicountpercent: discountPercent,
+        stockQuantity: int.parse(_stockController.text),
+        maxOrderQuantity: int.tryParse(_maxOrderController.text) ?? 5,
+        isOutOfStock: _isOutOfStock,
+        image: _selectedImages.isNotEmpty ? _selectedImages.first : '',
+        images: _selectedImages,
+        isOnSale: _isOnSale,
+        isPopular: _isPopular,
+        isBestSeller: _isBestSeller,
+        isFlashSale: _isFlashSale,
+        flashSaleEnd: _flashSaleEnd,
       );
 
-      print('📡 Response Status: ${response.statusCode}');
-      print('📡 Response Body: ${response.body}');
-      
-      if (response.statusCode == 201) {
-        final responseData = jsonDecode(response.body);
-        return {
-          'success': true,
-          'message': 'Product created successfully',
-          'data': responseData
-        };
+      Map<String, dynamic> result;
+      if (widget.product == null) {
+        result = await _productsApiService.createProduct(product);
       } else {
-        return {
-          'success': false,
-          'message': 'Failed to create product: ${response.statusCode} - ${response.body}'
-        };
+        result = await _productsApiService.updateProduct(widget.product!.productId!, product);
+      }
+
+      if (result['success'] != true) {
+        throw Exception(result['message'] ?? 'Failed to save product');
+      }
+
+      widget.onProductSaved?.call(product);
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(widget.product == null
+                ? 'Product created successfully!'
+                : 'Product updated successfully!'),
+            backgroundColor: successColor,
+          ),
+        );
+        Navigator.pop(context);
       }
     } catch (e) {
-      print('❌ Error in direct API call: $e');
-      return {
-        'success': false,
-        'message': 'Error creating product: $e'
-      };
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error saving product: $e')),
+      );
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
@@ -388,46 +234,41 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         elevation: 0,
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh, color: Colors.white),
+            icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: () async {
-              // Update to working token
-              const WORKING_TOKEN = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4YmIyNmJlNjhlMzhhZTY3ZWY3ZWQwYyIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc1NzE2MzQ5MywiZXhwIjoxNzU3NDIyNjkzfQ.Ww8X84uP0UtXZg8qL6TwrjuTpKU3f-dtyntGRHX2c2s';
-              
-              print('🚨🚨🚨 MANUAL TOKEN UPDATE 🚨🚨🚨');
+              const WORKING_TOKEN =
+                  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6IjY4YmIyNmJlNjhlMzhhZTY3ZWY3ZWQwYyIsInJvbGUiOiJhZG1pbiIsImlhdCI6MTc1NzE2MzQ5MywiZXhwIjoxNzU3NDIyNjkzfQ.Ww8X84uP0UtXZg8qL6TwrjuTpKU3f-dtyntGRHX2c2s';
               await UserSession.setAuthToken(WORKING_TOKEN);
               await UserSession.loadSession();
-              print('🚨🚨🚨 TOKEN UPDATED TO: ${UserSession.authToken?.substring(0, 20)}...');
-              
               ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(content: Text('Token updated! Token: ${UserSession.authToken?.substring(0, 20)}...')),
+                const SnackBar(content: Text('Token updated!')),
               );
             },
-            tooltip: 'Update Token',
           ),
         ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(defaultPadding),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildImageSection(),
-                    const SizedBox(height: defaultPadding * 2),
-                    _buildFormFields(),
-                    const SizedBox(height: defaultPadding * 2),
-                    _buildPriceSection(),
-                    const SizedBox(height: defaultPadding * 2),
-                    _buildStockSection(),
-                    const SizedBox(height: defaultPadding * 3),
-                    _buildSaveButton(),
-                  ],
-                ),
-              ),
-            ),
+        padding: const EdgeInsets.all(defaultPadding),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _buildImageSection(),
+              const SizedBox(height: defaultPadding * 2),
+              _buildFormFields(),
+              const SizedBox(height: defaultPadding * 2),
+              _buildPriceSection(),
+              const SizedBox(height: defaultPadding * 2),
+              _buildStockSection(),
+              const SizedBox(height: defaultPadding * 3),
+              _buildSaveButton(),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -439,18 +280,13 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
           children: [
             Icon(Icons.photo_library, color: primaryColor),
             const SizedBox(width: 8),
-            const Text(
-              'Product Images',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text('Product Images',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: defaultPadding),
         if (_selectedImages.isNotEmpty)
-          Container(
+          SizedBox(
             height: 120,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
@@ -470,23 +306,8 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                         child: ClipRRect(
                           borderRadius: BorderRadius.circular(8),
                           child: _selectedImages[index].startsWith('http')
-                              ? Image.network(
-                                  _selectedImages[index],
-                                  fit: BoxFit.cover,
-                                  errorBuilder: (context, error, stackTrace) {
-                                    return Container(
-                                      color: Colors.grey[200],
-                                      child: Icon(
-                                        Icons.error,
-                                        color: errorColor,
-                                      ),
-                                    );
-                                  },
-                                )
-                              : Image.file(
-                                  File(_selectedImages[index]),
-                                  fit: BoxFit.cover,
-                                ),
+                              ? Image.network(_selectedImages[index], fit: BoxFit.cover)
+                              : Image.file(File(_selectedImages[index]), fit: BoxFit.cover),
                         ),
                       ),
                       Positioned(
@@ -499,11 +320,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                               color: Colors.red,
                               shape: BoxShape.circle,
                             ),
-                            child: const Icon(
-                              Icons.close,
-                              color: Colors.white,
-                              size: 20,
-                            ),
+                            child: const Icon(Icons.close, color: Colors.white, size: 20),
                           ),
                         ),
                       ),
@@ -553,13 +370,8 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
           children: [
             Icon(Icons.info_outline, color: primaryColor),
             const SizedBox(width: 8),
-            const Text(
-              'Product Information',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text('Product Information',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: defaultPadding),
@@ -569,12 +381,8 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
             labelText: 'Product Name',
             border: OutlineInputBorder(),
           ),
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter product name';
-            }
-            return null;
-          },
+          validator: (value) =>
+          value == null || value.isEmpty ? 'Please enter product name' : null,
         ),
         const SizedBox(height: defaultPadding),
         TextFormField(
@@ -584,12 +392,8 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
             border: OutlineInputBorder(),
           ),
           maxLines: 3,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter product description';
-            }
-            return null;
-          },
+          validator: (value) =>
+          value == null || value.isEmpty ? 'Please enter description' : null,
         ),
         const SizedBox(height: defaultPadding),
         DropdownButtonFormField<String>(
@@ -598,23 +402,13 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
             labelText: 'Category',
             border: OutlineInputBorder(),
           ),
-          items: _categories.map((String category) {
-            return DropdownMenuItem<String>(
-              value: category,
-              child: Text(category),
-            );
-          }).toList(),
-          onChanged: (String? newValue) {
-            setState(() {
-              _selectedCategory = newValue;
-            });
-          },
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please select a category';
-            }
-            return null;
-          },
+          items: _categories
+              .map((String category) =>
+              DropdownMenuItem(value: category, child: Text(category)))
+              .toList(),
+          onChanged: (String? newValue) => setState(() => _selectedCategory = newValue),
+          validator: (value) =>
+          value == null || value.isEmpty ? 'Please select a category' : null,
         ),
       ],
     );
@@ -628,13 +422,8 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
           children: [
             Icon(Icons.currency_rupee, color: primaryColor),
             const SizedBox(width: 8),
-            const Text(
-              'Pricing',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text('Pricing',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: defaultPadding),
@@ -648,15 +437,11 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                   border: OutlineInputBorder(),
                 ),
                 keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter original price';
-                  }
-                  if (double.tryParse(value) == null) {
-                    return 'Please enter valid price';
-                  }
-                  return null;
-                },
+                validator: (value) => value == null || value.isEmpty
+                    ? 'Please enter price'
+                    : (double.tryParse(value) == null
+                    ? 'Please enter valid price'
+                    : null),
               ),
             ),
             const SizedBox(width: defaultPadding),
@@ -669,19 +454,15 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                   hintText: 'Optional',
                 ),
                 keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value != null && value.isNotEmpty) {
-                    if (double.tryParse(value) == null) {
-                      return 'Please enter valid price';
-                    }
-                  }
-                  return null;
-                },
+                validator: (value) => value != null &&
+                    value.isNotEmpty &&
+                    double.tryParse(value) == null
+                    ? 'Enter valid number'
+                    : null,
               ),
             ),
           ],
         ),
-        const SizedBox(height: defaultPadding),
         CheckboxListTile(
           title: const Text('On Sale'),
           value: _isOnSale,
@@ -706,8 +487,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
           onChanged: (value) => setState(() => _isFlashSale = value ?? false),
           activeColor: primaryColor,
         ),
-        if (_isFlashSale) ...[
-          const SizedBox(height: defaultPadding),
+        if (_isFlashSale)
           Row(
             children: [
               Expanded(
@@ -720,7 +500,8 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
                 onPressed: () async {
                   final date = await showDatePicker(
                     context: context,
-                    initialDate: _flashSaleEnd ?? DateTime.now().add(const Duration(days: 7)),
+                    initialDate:
+                    _flashSaleEnd ?? DateTime.now().add(const Duration(days: 7)),
                     firstDate: DateTime.now(),
                     lastDate: DateTime.now().add(const Duration(days: 365)),
                   );
@@ -746,7 +527,6 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
               ),
             ],
           ),
-        ],
       ],
     );
   }
@@ -759,13 +539,8 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
           children: [
             Icon(Icons.inventory, color: primaryColor),
             const SizedBox(width: 8),
-            const Text(
-              'Stock Management',
-              style: TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            const Text('Stock Management',
+                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
           ],
         ),
         const SizedBox(height: defaultPadding),
@@ -776,15 +551,28 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
             border: OutlineInputBorder(),
           ),
           keyboardType: TextInputType.number,
-          validator: (value) {
-            if (value == null || value.isEmpty) {
-              return 'Please enter stock quantity';
-            }
-            if (int.tryParse(value) == null) {
-              return 'Please enter valid quantity';
-            }
-            return null;
-          },
+          validator: (value) => value == null || value.isEmpty
+              ? 'Enter stock quantity'
+              : (int.tryParse(value) == null ? 'Enter valid number' : null),
+        ),
+        const SizedBox(height: defaultPadding),
+        TextFormField(
+          controller: _maxOrderController,
+          decoration: const InputDecoration(
+            labelText: 'Max Order Quantity',
+            border: OutlineInputBorder(),
+          ),
+          keyboardType: TextInputType.number,
+          validator: (value) => value == null || value.isEmpty
+              ? 'Enter max order quantity'
+              : (int.tryParse(value) == null ? 'Enter valid number' : null),
+        ),
+        const SizedBox(height: defaultPadding),
+        CheckboxListTile(
+          title: const Text('Out of Stock'),
+          value: _isOutOfStock,
+          onChanged: (val) => setState(() => _isOutOfStock = val ?? false),
+          activeColor: primaryColor,
         ),
       ],
     );
@@ -802,13 +590,13 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
         child: _isLoading
             ? const CircularProgressIndicator(color: Colors.white)
             : Text(
-                widget.product == null ? 'Create Product' : 'Update Product',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
-                ),
-              ),
+          widget.product == null ? 'Create Product' : 'Update Product',
+          style: const TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
       ),
     );
   }
@@ -822,6 +610,7 @@ class _ProductManagementScreenState extends State<ProductManagementScreen> {
     _salePriceController.dispose();
     _discountController.dispose();
     _stockController.dispose();
+    _maxOrderController.dispose();
     super.dispose();
   }
 }

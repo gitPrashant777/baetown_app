@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:shop/constants.dart';
-import 'package:shop/services/product_api_service.dart';
+import 'package:shop/models/product_model.dart';
+import 'package:shop/services/products_api_service.dart';
 import 'dart:io';
 
 class AddProductScreen extends StatefulWidget {
@@ -19,7 +20,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
   final _discountController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _quantityController = TextEditingController();
-  
+
   bool _isLoading = false;
   String _selectedCategory = 'Electronics';
   File? _selectedImage;
@@ -57,19 +58,21 @@ class _AddProductScreenState extends State<AddProductScreen> {
         maxHeight: 1024,
         imageQuality: 85,
       );
-      
+
       if (image != null) {
         setState(() {
           _selectedImage = File(image.path);
         });
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error picking image: $e'),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error picking image: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     }
   }
 
@@ -81,50 +84,64 @@ class _AddProductScreenState extends State<AddProductScreen> {
     });
 
     try {
-      final productApiService = ProductApiService();
-      
-      // Prepare product data to match backend API structure
-      final productData = {
-        'name': _titleController.text.trim(), // Some APIs use 'name' instead of 'title'
-        'title': _titleController.text.trim(),
-        'brand': _brandController.text.trim(),
-        'brandName': _brandController.text.trim(),
-        'price': double.parse(_priceController.text),
-        'discountPercentage': _discountController.text.isNotEmpty 
-            ? double.parse(_discountController.text) 
-            : 0.0,
-        'description': _descriptionController.text.trim(),
-        'category': _selectedCategory,
-        'quantity': int.parse(_quantityController.text),
-        'stock': int.parse(_quantityController.text), // Some APIs use 'stock'
-        'isAvailable': true,
-        'inStock': true,
-        'tags': _titleController.text.trim().split(' ').where((tag) => tag.isNotEmpty).toList(),
-        'rating': 0.0,
-        'numReviews': 0,
-      };
+      final productApiService = ProductsApiService(); // Fixed: ProductsApiService (with 's')
 
-      final response = await productApiService.addProduct(
-        productData: productData,
-        imageFile: _selectedImage,
+      // Calculate price after discount
+      final price = double.parse(_priceController.text);
+      final discountPercent = _discountController.text.isNotEmpty
+          ? int.parse(_discountController.text)
+          : 0;
+      final priceAfterDiscount = discountPercent > 0
+          ? price - (price * discountPercent / 100)
+          : price;
+
+      // Create ProductModel object
+      final product = ProductModel(
+        title: _titleController.text.trim(),
+        brandName: _brandController.text.trim(),
+        description: _descriptionController.text.trim().isNotEmpty
+            ? _descriptionController.text.trim()
+            : 'No description provided',
+        category: _selectedCategory,
+        price: price,
+        priceAfetDiscount: priceAfterDiscount,
+        dicountpercent: discountPercent,
+        stockQuantity: int.parse(_quantityController.text),
+        maxOrderQuantity: int.parse(_quantityController.text),
+        isOutOfStock: int.parse(_quantityController.text) <= 0,
+        image: _selectedImage?.path ?? productDemoImg1, // Use demo image if no image selected
+        images: [
+          _selectedImage?.path ?? productDemoImg1,
+          productDemoImg2,
+          productDemoImg3,
+        ],
+        isOnSale: discountPercent > 0,
+        isPopular: false,
+        isBestSeller: false,
+        isFlashSale: false,
       );
 
-      if (response.success) {
+      // Call the createProduct method
+      final response = await productApiService.createProduct(product);
+
+      if (response['success'] == true) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Product added successfully!'),
               backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
             ),
           );
-          Navigator.of(context).pop(); // Go back to dashboard
+          Navigator.of(context).pop(true); // Return true to indicate success
         }
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(response.error ?? 'Failed to add product'),
+              content: Text(response['message'] ?? 'Failed to add product'),
               backgroundColor: Colors.red,
+              duration: const Duration(seconds: 3),
             ),
           );
         }
@@ -135,6 +152,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
           SnackBar(
             content: Text('Error: $e'),
             backgroundColor: Colors.red,
+            duration: const Duration(seconds: 3),
           ),
         );
       }
@@ -175,30 +193,38 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 ),
                 child: _selectedImage != null
                     ? ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: Image.file(
-                          _selectedImage!,
-                          fit: BoxFit.cover,
-                        ),
-                      )
+                  borderRadius: BorderRadius.circular(12),
+                  child: Image.file(
+                    _selectedImage!,
+                    fit: BoxFit.cover,
+                  ),
+                )
                     : Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.add_photo_alternate,
-                            size: 60,
-                            color: Colors.grey[400],
-                          ),
-                          const SizedBox(height: 8),
-                          Text(
-                            'Tap to add product image',
-                            style: TextStyle(
-                              color: Colors.grey[600],
-                              fontSize: 16,
-                            ),
-                          ),
-                        ],
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(
+                      Icons.add_photo_alternate,
+                      size: 60,
+                      color: Colors.grey[400],
+                    ),
+                    const SizedBox(height: 8),
+                    Text(
+                      'Tap to add product image',
+                      style: TextStyle(
+                        color: Colors.grey[600],
+                        fontSize: 16,
                       ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '(Optional - demo image will be used)',
+                      style: TextStyle(
+                        color: Colors.grey[500],
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
 
@@ -211,10 +237,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 labelText: 'Product Title *',
                 hintText: 'Enter product title',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.shopping_bag),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Please enter product title';
+                }
+                if (value.trim().length < 3) {
+                  return 'Title must be at least 3 characters';
                 }
                 return null;
               },
@@ -229,6 +259,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 labelText: 'Brand Name *',
                 hintText: 'Enter brand name',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.branding_watermark),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
@@ -246,6 +277,7 @@ class _AddProductScreenState extends State<AddProductScreen> {
               decoration: const InputDecoration(
                 labelText: 'Category *',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.category),
               ),
               items: _categories.map((category) {
                 return DropdownMenuItem(
@@ -274,12 +306,14 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       labelText: 'Price (₹) *',
                       hintText: '0.00',
                       border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.currency_rupee),
                     ),
                     validator: (value) {
                       if (value == null || value.trim().isEmpty) {
                         return 'Enter price';
                       }
-                      if (double.tryParse(value) == null) {
+                      final price = double.tryParse(value);
+                      if (price == null || price <= 0) {
                         return 'Invalid price';
                       }
                       return null;
@@ -295,10 +329,11 @@ class _AddProductScreenState extends State<AddProductScreen> {
                       labelText: 'Discount %',
                       hintText: '0',
                       border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.local_offer),
                     ),
                     validator: (value) {
                       if (value != null && value.isNotEmpty) {
-                        final discount = double.tryParse(value);
+                        final discount = int.tryParse(value);
                         if (discount == null || discount < 0 || discount > 100) {
                           return 'Invalid %';
                         }
@@ -317,15 +352,17 @@ class _AddProductScreenState extends State<AddProductScreen> {
               controller: _quantityController,
               keyboardType: TextInputType.number,
               decoration: const InputDecoration(
-                labelText: 'Quantity *',
+                labelText: 'Stock Quantity *',
                 hintText: 'Available quantity',
                 border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.inventory),
               ),
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Please enter quantity';
                 }
-                if (int.tryParse(value) == null) {
+                final qty = int.tryParse(value);
+                if (qty == null || qty < 0) {
                   return 'Invalid quantity';
                 }
                 return null;
@@ -340,9 +377,13 @@ class _AddProductScreenState extends State<AddProductScreen> {
               maxLines: 4,
               decoration: const InputDecoration(
                 labelText: 'Description',
-                hintText: 'Enter product description',
+                hintText: 'Enter product description (optional)',
                 border: OutlineInputBorder(),
                 alignLabelWithHint: true,
+                prefixIcon: Padding(
+                  padding: EdgeInsets.only(bottom: 60),
+                  child: Icon(Icons.description),
+                ),
               ),
             ),
 
@@ -357,37 +398,60 @@ class _AddProductScreenState extends State<AddProductScreen> {
                 style: ElevatedButton.styleFrom(
                   backgroundColor: primaryColor,
                   foregroundColor: Colors.white,
+                  disabledBackgroundColor: Colors.grey[400],
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
                 child: _isLoading
                     ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : const Text(
-                        'Add Product',
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    color: Colors.white,
+                    strokeWidth: 2,
+                  ),
+                )
+                    : const Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(Icons.add_circle_outline),
+                    SizedBox(width: 8),
+                    Text(
+                      'Add Product',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
                       ),
+                    ),
+                  ],
+                ),
               ),
             ),
 
             const SizedBox(height: 16),
 
             // Required Fields Note
-            Text(
-              '* Required fields',
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey[600],
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue[50],
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.info_outline, color: Colors.blue[700], size: 20),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '* Required fields must be filled',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.blue[700],
+                      ),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

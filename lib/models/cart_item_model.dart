@@ -16,31 +16,47 @@ class CartItem {
   });
 
   factory CartItem.fromJson(Map<String, dynamic> json) {
-    // The API response may have product info nested under 'productId' or 'product'.
-    final productJson = json['productId'] is Map<String, dynamic>
-        ? json['productId']
-        : (json['product'] is Map<String, dynamic>
-        ? json['product']
-        : <String, dynamic>{});
+    print("🛒 Parsing cart item: ${json['_id']}");
 
-    // Ensure the product has an ID - extract from the nested product or use the reference ID
-    if (productJson is Map<String, dynamic>) {
-      if (!productJson.containsKey('_id') && !productJson.containsKey('id')) {
-        // If the nested product doesn't have an ID, use the productId reference
-        if (json['productId'] is String) {
-          productJson['_id'] = json['productId'];
-        }
-      }
-      // Always set productId field for ProductModel
-      if (json['productId'] is String) {
-        productJson['productId'] = json['productId'];
-      } else if (productJson['_id'] != null) {
+    // FIXED: Handle the API response format where productId is a full product object
+    Map<String, dynamic> productJson;
+
+    if (json['productId'] is Map<String, dynamic>) {
+      // Format: productId is an object with full product data
+      productJson = Map<String, dynamic>.from(json['productId']);
+
+      // FIXED: Ensure productId field is set correctly
+      if (productJson.containsKey('_id')) {
         productJson['productId'] = productJson['_id'];
       }
+
+      // FIXED: Handle empty images array - provide fallback
+      if (productJson['images'] is List && (productJson['images'] as List).isEmpty) {
+        productJson['images'] = ['https://via.placeholder.com/300?text=No+Image'];
+      }
+    } else {
+      // Fallback for other formats
+      productJson = {
+        'productId': json['_id'] ?? json['id'],
+        'title': json['name'] ?? json['title'] ?? 'Product',
+        'description': json['description'] ?? '',
+        'category': json['category'] ?? '',
+        'price': (json['price'] ?? 0).toDouble(),
+        'stockQuantity': json['stock'] ?? json['stockQuantity'] ?? 0,
+        'maxOrderQuantity': json['maxOrderQuantity'] ?? 5,
+        'isOutOfStock': json['isOutOfStock'] ?? false,
+        'image': json['image'] ?? '',
+        'images': json['images'] ?? ['https://via.placeholder.com/300?text=No+Image'],
+      };
+    }
+
+    // Ensure we have a valid product ID
+    if (productJson['productId'] == null) {
+      print("❌ WARNING: Cart item has no product ID: $json");
     }
 
     return CartItem(
-      cartItemId: json['_id'],
+      cartItemId: json['_id']?.toString(),
       product: ProductModel.fromJson(productJson),
       quantity: json['quantity'] ?? 1,
       selectedSize: json['selectedSize'],
@@ -50,7 +66,7 @@ class CartItem {
 
   // Get the product ID for API operations
   String? get productId {
-  return product.productId ?? cartItemId;
+    return product.productId ?? cartItemId;
   }
 
   double get totalPrice {
@@ -72,4 +88,4 @@ class CartItem {
       selectedColor: selectedColor ?? this.selectedColor,
     );
   }
-}                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     
+}
