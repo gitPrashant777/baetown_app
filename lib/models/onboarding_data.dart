@@ -54,21 +54,27 @@ class OnboardingData extends ChangeNotifier {
     print("Scalp image set: ${image.path}");
     notifyListeners();
   }
-  void submitPhotosAndAnalyze(BuildContext context) {
-    if (skinImage != null && scalpImage != null) {
-      print("All data collected. Navigating to Loading Screen.");
-      // Navigate to the Loading Screen, replacing the current flow
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          // We must wrap LoadingScreen in a Provider so it can access OnboardingData
-          builder: (_) => ChangeNotifierProvider.value(
-            value: this,
-            child: const LoadingScreen(), // The file you uploaded
-          ),
-        ),
+  Future<void> submitPhotosAndAnalyze(BuildContext context) async {
+    if (skinImage == null || scalpImage == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Please upload both photos before continuing.")),
       );
+      return;
     }
+
+    print("All data collected. Navigating to Loading Screen.");
+
+    // Show loading screen while analyzing
+    await Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (_) => ChangeNotifierProvider.value(
+          value: this,
+          child: const LoadingScreen(),
+        ),
+      ),
+    );
   }
+
   // This map will store the answers, e.g., {0: "Mostly Sitting", 1: "6-8 hours"}
   final Map<int, String> _answers = {};
   Map<int, String> get answers => _answers;

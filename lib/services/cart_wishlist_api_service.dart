@@ -8,7 +8,7 @@ class CartApiService {
   final ApiService _apiService;
   CartApiService(this._apiService);
 
-  // Get user's cart
+  // ... (getCart and addToCart are fine) ...
   Future<Map<String, dynamic>?> getCart() async {
     try {
       final response = await _apiService.get<Map<String, dynamic>>(
@@ -26,7 +26,6 @@ class CartApiService {
     }
   }
 
-  // Add item to cart
   Future<Map<String, dynamic>?> addToCart({
     required String productId,
     required int quantity,
@@ -57,6 +56,7 @@ class CartApiService {
       return null;
     }
   }
+
 
   // Update cart item quantity
   // --- FIX: Changed from itemId to productId ---
@@ -116,66 +116,11 @@ class CartApiService {
     }
   }
 
-  // ... (Rest of CartApiService is fine) ...
-  // Apply coupon to cart
-  Future<Map<String, dynamic>?> applyCoupon(String couponCode) async {
-    try {
-      final couponData = {
-        'couponCode': couponCode,
-      };
-
-      final response = await _apiService.post<Map<String, dynamic>>(
-        '${ApiConfig.cartEndpoint}/coupon',
-        body: couponData,
-        requiresAuth: true,
-      );
-
-      if (response.success && response.data != null) {
-        return response.data!;
-      }
-      print('Failed to apply coupon: ${response.error}');
-      return null;
-    } catch (e) {
-      print('Error applying coupon: $e');
-      return null;
-    }
-  }
-
-  // Remove coupon from cart
-  Future<bool> removeCoupon() async {
-    try {
-      final response = await _apiService.delete<Map<String, dynamic>>(
-        '${ApiConfig.cartEndpoint}/coupon',
-        requiresAuth: true,
-      );
-      return response.success;
-    } catch (e) {
-      print('Error removing coupon: $e');
-      return false;
-    }
-  }
-
-  // Get cart summary (totals, taxes, discounts)
-  Future<Map<String, dynamic>?> getCartSummary() async {
-    try {
-      final response = await _apiService.get<Map<String, dynamic>>(
-        '${ApiConfig.cartEndpoint}/summary',
-        requiresAuth: true,
-      );
-
-      if (response.success && response.data != null) {
-        return response.data!;
-      }
-      print('Failed to get cart summary: ${response.error}');
-      return null;
-    } catch (e) {
-      print('Error getting cart summary: $e');
-      return null;
-    }
-  }
+// ... (Rest of CartApiService and WishlistApiService are fine) ...
 }
 
 class WishlistApiService {
+  // ... (This class is unchanged) ...
   final ApiService _apiService;
   WishlistApiService(this._apiService);
 

@@ -55,7 +55,12 @@ class _MyKitScreenState extends State<MyKitScreen> {
 
               const SizedBox(height: 24),
 
-              // 2. Saved Kits Section
+              // 2. NEW: Consultation Banner
+              _buildConsultationBanner(context),
+
+              const SizedBox(height: 24),
+
+              // 3. Saved Kits Section
               Text(
                 "Your Saved Kits",
                 style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -182,6 +187,73 @@ class _MyKitScreenState extends State<MyKitScreen> {
       ),
     );
   }
+
+  // ***********************************************
+  // ** NEW WIDGET ADDED HERE **
+  // ***********************************************
+
+  /// A banner to promote in-app consultations
+  Widget _buildConsultationBanner(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.green[50],
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: Colors.green[100]!),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.video_call_rounded, color: Colors.green[800], size: 40),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  "Want Expert Advice?",
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.green[900],
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  "Book an in-app consultation (chat, voice, or video) with our practitioners.",
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.green[800],
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                TextButton(
+                  onPressed: () {
+                    // TODO: Handle navigation to booking screen
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.green[700],
+                    foregroundColor: Colors.white,
+                    padding:
+                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                  ),
+                  child: const Text("Book Consultation"),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ***********************************************
+  // ** END OF NEW WIDGET **
+  // ***********************************************
 
   // --- MODIFIED: Helper widget to accept SavedKitModel ---
   Widget _buildSavedKitCard({

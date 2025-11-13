@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shop/constants.dart';
 import '../../../models/onboarding_data.dart';
 import '../Components/question_option_card.dart';
 import 'package:provider/provider.dart';
@@ -28,7 +29,7 @@ class OnboardingQuestionScreen extends StatelessWidget {
               // 1. Icon
               Icon(
                 question.icon,
-                color: Colors.green,
+                color: primaryColor,
                 size: 40,
               ),
               const SizedBox(height: 24),
@@ -38,7 +39,7 @@ class OnboardingQuestionScreen extends StatelessWidget {
                 style: const TextStyle(
                   fontSize: 26,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black,
+                  color: primaryColor,
                 ),
               ),
               const SizedBox(height: 12),
@@ -47,7 +48,7 @@ class OnboardingQuestionScreen extends StatelessWidget {
                 question.questionText,
                 style: const TextStyle(
                   fontSize: 18,
-                  color: Colors.black87,
+                  color: primaryColor,
                 ),
               ),
               const SizedBox(height: 24),

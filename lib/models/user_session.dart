@@ -151,20 +151,22 @@ class UserSession {
     _authToken = token;
     await prefs.setString(_tokenKey, token);
   }
-
-  // Clear session and remove from persistent storage
+// Clear session and remove from persistent storage
   static Future<void> clearSession() async {
     final prefs = await SharedPreferences.getInstance();
-    
+
+    // Clear in-memory variables
     _isAdmin = false;
     _userEmail = '';
     _authToken = null;
     _userData = null;
     _user = null;
-    
+
+    // Remove from persistent storage
     await prefs.remove(_emailKey);
     await prefs.remove(_tokenKey);
     await prefs.remove(_adminKey);
     await prefs.remove(_userDataKey);
   }
+
 }

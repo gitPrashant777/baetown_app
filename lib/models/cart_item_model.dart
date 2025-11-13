@@ -23,6 +23,7 @@ class CartItem {
 
     if (json['productId'] is Map<String, dynamic>) {
       // Format: productId is an object with full product data
+      // --- THIS PART IS ALREADY CORRECT ---
       productJson = Map<String, dynamic>.from(json['productId']);
 
       // FIXED: Ensure productId field is set correctly
@@ -35,9 +36,14 @@ class CartItem {
         productJson['images'] = ['https://via.placeholder.com/300?text=No+Image'];
       }
     } else {
-      // Fallback for other formats
+      // --- THIS IS THE FIX ---
+      // Fallback for other formats (e.g., 'productId' is just a string)
+      // We must build a productJson from the fields available at the top level.
       productJson = {
-        'productId': json['_id'] ?? json['id'],
+        // CRITICAL FIX: Use the 'productId' field from the json.
+        // Do NOT use json['_id'] (which is the cart item's ID).
+        'productId': json['productId']?.toString(), // <-- THE FIX
+
         'title': json['name'] ?? json['title'] ?? 'Product',
         'description': json['description'] ?? '',
         'category': json['category'] ?? '',
@@ -48,6 +54,7 @@ class CartItem {
         'image': json['image'] ?? '',
         'images': json['images'] ?? ['https://via.placeholder.com/300?text=No+Image'],
       };
+      // --- END OF FIX ---
     }
 
     // Ensure we have a valid product ID
@@ -56,14 +63,13 @@ class CartItem {
     }
 
     return CartItem(
-      cartItemId: json['_id']?.toString(),
-      product: ProductModel.fromJson(productJson),
+      cartItemId: json['_id']?.toString(), // This is the CartItem's own ID
+      product: ProductModel.fromJson(productJson), // This creates the product
       quantity: json['quantity'] ?? 1,
       selectedSize: json['selectedSize'],
       selectedColor: json['selectedColor'],
     );
   }
-
   // Get the product ID for API operations
   String? get productId {
     return product.productId ?? cartItemId;

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shop/components/Banner/S/banner_s_style_1.dart';
 import 'package:shop/components/Banner/S/banner_s_style_5.dart';
-import 'package:shop/components/free_delivery_banner.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/route/screen_export.dart';
 
@@ -17,72 +16,100 @@ class HomeScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
-            const SliverToBoxAdapter(child: FreeDeliveryBanner()),
+            // Hero Banner - MIDNIGHT LOTION style
             const SliverToBoxAdapter(child: OffersCarouselAndCategories()),
-            const SliverToBoxAdapter(child: PopularProducts()),
+
+            // NOUVEAUTÉS - 2-row horizontal grid
+            const SliverToBoxAdapter(child: MostPopular()),
+
+            // ROUTINES VISAGE - Flash Sale section
             SliverPadding(
               padding: EdgeInsets.symmetric(
-                vertical: MediaQuery.of(context).size.width < 600 
-                  ? defaultPadding 
-                  : defaultPadding * 1.5
+                vertical: MediaQuery.of(context).size.width < 600
+                    ? defaultPadding
+                    : defaultPadding * 1.1,
               ),
               sliver: const SliverToBoxAdapter(child: FlashSale()),
             ),
+
+            // Feature Banner with subtle styling
             SliverToBoxAdapter(
-              child: Column(
-                children: [
-                  // While loading use 👇
-                  // const BannerMSkelton(),‚
-                  BannerSStyle1(
-                    title: "Bridal \nCollection",
-                    subtitle: "SPECIAL OFFER",
-                    discountParcent: 50,
+              child: Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 15,
+                      offset: const Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(12),
+                  child: BannerSStyle5(
+                    title: ' ',
+                    subtitle: "",
+                    bottomText: " 50% Off SALE".toUpperCase(),
                     press: () {
                       Navigator.pushNamed(context, onSaleScreenRoute);
                     },
                   ),
-                  const SizedBox(height: defaultPadding / 4),
-                  // We have 4 banner styles, all in the pro version
-                ],
+                ),
+
               ),
             ),
+
+
+            // LE TEINT - Best Sellers
             const SliverToBoxAdapter(child: BestSellers()),
-            const SliverToBoxAdapter(child: MostPopular()),
+
+            // Second Feature Banner
             SliverToBoxAdapter(
               child: Padding(
                 padding: EdgeInsets.symmetric(
-                  horizontal: MediaQuery.of(context).size.width < 600 
-                    ? defaultPadding / 2 
-                    : 0
+                  horizontal: MediaQuery.of(context).size.width < 600
+                      ? defaultPadding / 2
+                      : defaultPadding,
                 ),
-                child: Column(
-                  children: [
-                    SizedBox(height: MediaQuery.of(context).size.width < 600 
-                      ? defaultPadding 
-                      : defaultPadding * 1.5),
-                    const SizedBox(height: defaultPadding / 4),
-                    // While loading use 👇
-                    // const BannerSSkelton(),
-                    BannerSStyle5(
-                      title: "GOLD \nSALE",
-                      subtitle: "50% Off",
-                      bottomText: "Collection".toUpperCase(),
+                child: Container(
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 15,
+                        offset: const Offset(0, 3),
+                      ),
+                    ],
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(12),
+                    child: BannerSStyle1(
+                      title: "",
+                      subtitle: "SPECIAL OFFER",
+                      discountParcent: 25,
                       press: () {
                         Navigator.pushNamed(context, onSaleScreenRoute);
                       },
                     ),
-                    const SizedBox(height: defaultPadding / 4),
-                  ],
+                  ),
                 ),
               ),
             ),
-            const SliverToBoxAdapter(child: BestSellers()),
-            // Add some bottom spacing
+
+            // Additional Best Sellers
+            const SliverToBoxAdapter(child: PopularProducts()),
+
+            // Bottom spacing
             const SliverToBoxAdapter(
-              child: SizedBox(height: defaultPadding * 2),
+              child: SizedBox(height: defaultPadding * 3),
             ),
           ],
         ),

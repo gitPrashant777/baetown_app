@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:shop/components/product/product_card.dart';
-import 'package:shop/models/product_model.dart';
-import 'package:shop/route/screen_export.dart';
-import 'package:shop/services/products_api_service.dart';
-
+import 'package:shop/screens/product/views/AllProductsScreen.dart';
+import '../../../../components/product/product_card.dart';
+import '../../../../models/product_model.dart';
+import '../../../../route/route_constants.dart';
 import '../../../../constants.dart';
+import '../../../../services/products_api_service.dart';
 
 class PopularProducts extends StatefulWidget {
-  const PopularProducts({
-    super.key,
-  });
+  const PopularProducts({super.key});
 
   @override
   State<PopularProducts> createState() => _PopularProductsState();
@@ -20,6 +18,25 @@ class _PopularProductsState extends State<PopularProducts> {
   List<ProductModel> _popularProducts = [];
   bool _isLoading = true;
   bool _hasError = false;
+  final titleStyle = TextStyle(
+      color: Color(0xFF06055c), fontWeight: FontWeight.bold, fontSize: 16);
+  List<ProductModel> _firstRowProducts = [];
+  List<ProductModel> _secondRowProducts = [];
+
+  double get listHeight {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return screenWidth < 600 ? 220.0 : 240.0;
+  }
+
+  double get totalHeight {
+    if (_isLoading || _hasError || _popularProducts.isEmpty) {
+      return listHeight;
+    }
+    if (_secondRowProducts.isNotEmpty) {
+      return (listHeight * 2) + defaultPadding;
+    }
+    return listHeight;
+  }
 
   @override
   void initState() {
@@ -35,17 +52,23 @@ class _PopularProductsState extends State<PopularProducts> {
       });
 
       final allProducts = await _apiService.getAllProducts();
-      
-      // Filter products that are marked as popular
-      final popularProducts = allProducts.where((product) => 
-        product.isPopular == true
-      ).toList();
+      final popularProducts = allProducts.where((product) => product.isPopular == true).toList();
 
-      // If no products are marked as popular, show first 6 products
       if (popularProducts.isEmpty && allProducts.isNotEmpty) {
-        _popularProducts = allProducts.take(6).toList();
+        _popularProducts = allProducts.take(12).toList();
       } else {
-        _popularProducts = popularProducts.take(6).toList();
+        _popularProducts = popularProducts.take(12).toList();
+      }
+
+      if (_popularProducts.length > 6) {
+        _firstRowProducts = _popularProducts.sublist(0, 6);
+        _secondRowProducts = _popularProducts.sublist(
+          6,
+          _popularProducts.length > 12 ? 12 : _popularProducts.length,
+        );
+      } else {
+        _firstRowProducts = _popularProducts;
+        _secondRowProducts = [];
       }
 
       setState(() {
@@ -62,96 +85,160 @@ class _PopularProductsState extends State<PopularProducts> {
 
   @override
   Widget build(BuildContext context) {
-    // Make height responsive
     final screenWidth = MediaQuery.of(context).size.width;
-    final listHeight = screenWidth < 600 ? 200.0 : 220.0;
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: defaultPadding / 2),
-        Padding(
-          padding: const EdgeInsets.all(defaultPadding),
-          child: Text(
-            "Popular products",
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-        ),
-        if (_isLoading)
-          SizedBox(
-            height: listHeight,
-            child: const Center(
-              child: CircularProgressIndicator(),
-            ),
-          )
-        else if (_hasError)
-          SizedBox(
-            height: listHeight,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.grey),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Failed to load products",
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey,
+
+    return Container(
+      color: const Color(0xFFFAFAFA), // Light background
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: defaultPadding),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: defaultPadding),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  "All Products",
+                  style: titleStyle
+                ),
+                TextButton(
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (builder) => AllProductsScreen()),
+                    );
+                  },
+                  child: Text(
+                    "SEE ALL",
+                    style: TextStyle(
+                      color: const Color(0xFF020953),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      letterSpacing: 0.8,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: _fetchPopularProducts,
-                    child: const Text("Retry"),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          )
-        else if (_popularProducts.isEmpty)
+          ),
+          const SizedBox(height: defaultPadding / 2),
           SizedBox(
-            height: listHeight,
-            child: Center(
-              child: Text(
-                "No popular products available",
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey,
+            height: totalHeight,
+            child: _buildContent(screenWidth),
+          ),
+          const SizedBox(height: defaultPadding),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildContent(double screenWidth) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF020953)));
+    }
+
+    if (_hasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+            const SizedBox(height: 8),
+            Text(
+              "Failed to load products",
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: _fetchPopularProducts,
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF020953)),
+              child: const Text("Retry"),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_popularProducts.isEmpty) {
+      return Center(
+        child: Text(
+          "No popular products available",
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+        ),
+      );
+    }
+
+    return Column(
+      children: [
+        // First Row
+        SizedBox(
+          height: listHeight,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _firstRowProducts.length,
+            itemBuilder: (context, index) => Padding(
+              padding: EdgeInsets.only(
+                left: defaultPadding,
+                right: index == _firstRowProducts.length - 1 ? defaultPadding : 0,
+              ),
+              child: SizedBox(
+                width: screenWidth < 600 ? 140 : 160,
+                child: ProductCard(
+                  image: _firstRowProducts[index].image,
+                  brandName: _firstRowProducts[index].brandName ?? "BAETOWN",
+                  title: _firstRowProducts[index].title,
+                  price: _firstRowProducts[index].price,
+                  priceAfetDiscount: _firstRowProducts[index].priceAfetDiscount,
+                  dicountpercent: _firstRowProducts[index].dicountpercent,
+                  product: _firstRowProducts[index],
+                  press: () {
+                    Navigator.pushNamed(
+                      context,
+                      productDetailsScreenRoute,
+                      arguments: _firstRowProducts[index],
+                    );
+                  },
                 ),
               ),
             ),
-          )
-        else
+          ),
+        ),
+        if (_secondRowProducts.isNotEmpty) const SizedBox(height: defaultPadding),
+        if (_secondRowProducts.isNotEmpty)
+        // Second Row
           SizedBox(
             height: listHeight,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              itemCount: _popularProducts.length,
+              itemCount: _secondRowProducts.length,
               itemBuilder: (context, index) => Padding(
                 padding: EdgeInsets.only(
                   left: defaultPadding,
-                  right: index == _popularProducts.length - 1
-                      ? defaultPadding
-                      : 0,
+                  right: index == _secondRowProducts.length - 1 ? defaultPadding : 0,
                 ),
                 child: SizedBox(
-                  width: screenWidth < 600 ? 130 : 140,
+                  width: screenWidth < 600 ? 140 : 160,
                   child: ProductCard(
-                    image: _popularProducts[index].image,
-                    brandName: _popularProducts[index].brandName ?? "BAETOWN",
-                    title: _popularProducts[index].title,
-                    price: _popularProducts[index].price,
-                    priceAfetDiscount: _popularProducts[index].priceAfetDiscount,
-                    dicountpercent: _popularProducts[index].dicountpercent,
-                    product: _popularProducts[index],
+                    image: _secondRowProducts[index].image,
+                    brandName: _secondRowProducts[index].brandName ?? "BAETOWN",
+                    title: _secondRowProducts[index].title,
+                    price: _secondRowProducts[index].price,
+                    priceAfetDiscount: _secondRowProducts[index].priceAfetDiscount,
+                    dicountpercent: _secondRowProducts[index].dicountpercent,
+                    product: _secondRowProducts[index],
                     press: () {
-                      Navigator.pushNamed(context, productDetailsScreenRoute,
-                          arguments: _popularProducts[index]);
+                      Navigator.pushNamed(
+                        context,
+                        productDetailsScreenRoute,
+                        arguments: _secondRowProducts[index],
+                      );
                     },
                   ),
                 ),
               ),
             ),
-          )
+          ),
       ],
     );
   }

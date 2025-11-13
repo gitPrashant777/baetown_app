@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:shop/constants.dart';
 
 import '../../../models/onboarding_data.dart';
 import 'PersonalDetailsScreen.dart';
@@ -54,7 +55,7 @@ class OnboardingFlowManager extends StatelessWidget {
                     : LinearProgressIndicator(
                   value: data.progress,
                   backgroundColor: Colors.grey[200],
-                  valueColor: const AlwaysStoppedAnimation<Color>(Colors.green),
+                  valueColor: const AlwaysStoppedAnimation<Color>(primaryColor),
                 ),
               ),
             ),

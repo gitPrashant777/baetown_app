@@ -1,9 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
-
 import '../../../../constants.dart';
 
-class LogInForm extends StatelessWidget {
+class LogInForm extends StatefulWidget {
   const LogInForm({
     super.key,
     required this.formKey,
@@ -20,71 +18,184 @@ class LogInForm extends StatelessWidget {
   final TextEditingController? passwordController;
 
   @override
+  State<LogInForm> createState() => _LogInFormState();
+}
+
+class _LogInFormState extends State<LogInForm> {
+  bool _isPasswordVisible = false;
+
+  @override
   Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+
     return Form(
-      key: formKey,
+      key: widget.formKey,
       child: Column(
         children: [
+          // Email Field
           TextFormField(
-            controller: emailController,
-            onChanged: onEmailChanged,
+            controller: widget.emailController,
+            onChanged: widget.onEmailChanged,
             onSaved: (email) {
-              // Email
+              // Email saved
             },
             validator: emaildValidator.call,
             textInputAction: TextInputAction.next,
             keyboardType: TextInputType.emailAddress,
+            style: TextStyle(
+              fontSize: 16,
+              letterSpacing: 0.5,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
             decoration: InputDecoration(
-              hintText: "Email address",
-              prefixIcon: Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: defaultPadding * 0.75),
-                child: SvgPicture.asset(
-                  "assets/icons/Message.svg",
-                  height: 24,
-                  width: 24,
-                  colorFilter: ColorFilter.mode(
-                      Theme.of(context)
-                          .textTheme
-                          .bodyLarge!
-                          .color!
-                          .withOpacity(0.3),
-                      BlendMode.srcIn),
+              labelText: 'EMAIL',
+              hintText: 'Enter your email',
+              labelStyle: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 2,
+                color: isDark ? Colors.white60 : Colors.black54,
+              ),
+              hintStyle: TextStyle(
+                fontSize: 15,
+                color: isDark ? Colors.white30 : Colors.black26,
+                letterSpacing: 0.3,
+              ),
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+              filled: true,
+              fillColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 20,
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide(
+                  color: isDark ? Colors.white12 : Colors.black12,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide(
+                  color: isDark ? Colors.white12 : Colors.black12,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide(
+                  color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                  width: 1.5,
+                ),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: const BorderSide(
+                  color: Colors.red,
+                  width: 1,
+                ),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: const BorderSide(
+                  color: Colors.red,
+                  width: 1.5,
                 ),
               ),
             ),
           ),
-          const SizedBox(height: defaultPadding),
+
+          const SizedBox(height: 24),
+
+          // Password Field
           TextFormField(
-            controller: passwordController,
-            onChanged: onPasswordChanged,
+            controller: widget.passwordController,
+            onChanged: widget.onPasswordChanged,
             onSaved: (pass) {
-              // Password
+              // Password saved
             },
             validator: (value) {
-              // Temporarily simplified password validation for login
               if (value == null || value.isEmpty) {
                 return 'Password is required';
               }
-              return null; // Accept any non-empty password for now
+              if (value.length < 6) {
+                return 'Password must be at least 6 characters';
+              }
+              return null;
             },
-            obscureText: true,
+            obscureText: !_isPasswordVisible,
+            textInputAction: TextInputAction.done,
+            style: TextStyle(
+              fontSize: 16,
+              letterSpacing: 0.5,
+              color: isDark ? Colors.white : Colors.black87,
+            ),
             decoration: InputDecoration(
-              hintText: "Password",
-              prefixIcon: Padding(
-                padding:
-                    const EdgeInsets.symmetric(vertical: defaultPadding * 0.75),
-                child: SvgPicture.asset(
-                  "assets/icons/Lock.svg",
-                  height: 24,
-                  width: 24,
-                  colorFilter: ColorFilter.mode(
-                      Theme.of(context)
-                          .textTheme
-                          .bodyLarge!
-                          .color!
-                          .withOpacity(0.3),
-                      BlendMode.srcIn),
+              labelText: 'PASSWORD',
+              hintText: 'Enter your password',
+              labelStyle: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 2,
+                color: isDark ? Colors.white60 : Colors.black54,
+              ),
+              hintStyle: TextStyle(
+                fontSize: 15,
+                color: isDark ? Colors.white30 : Colors.black26,
+                letterSpacing: 0.3,
+              ),
+              floatingLabelBehavior: FloatingLabelBehavior.always,
+              filled: true,
+              fillColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+              contentPadding: const EdgeInsets.symmetric(
+                horizontal: 20,
+                vertical: 20,
+              ),
+              suffixIcon: IconButton(
+                icon: Icon(
+                  _isPasswordVisible
+                      ? Icons.visibility_outlined
+                      : Icons.visibility_off_outlined,
+                  color: isDark ? Colors.white38 : Colors.black38,
+                  size: 20,
+                ),
+                onPressed: () {
+                  setState(() {
+                    _isPasswordVisible = !_isPasswordVisible;
+                  });
+                },
+                tooltip: _isPasswordVisible ? 'Hide password' : 'Show password',
+              ),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide(
+                  color: isDark ? Colors.white12 : Colors.black12,
+                ),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide(
+                  color: isDark ? Colors.white12 : Colors.black12,
+                ),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: BorderSide(
+                  color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                  width: 1.5,
+                ),
+              ),
+              errorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: const BorderSide(
+                  color: Colors.red,
+                  width: 1,
+                ),
+              ),
+              focusedErrorBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(4),
+                borderSide: const BorderSide(
+                  color: Colors.red,
+                  width: 1.5,
                 ),
               ),
             ),

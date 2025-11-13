@@ -1,15 +1,16 @@
 import 'package:flutter/material.dart';
-import 'package:shop/components/product/secondary_product_card.dart';
+// 1. CHANGED: Imported ProductCard instead of SecondaryProductCard
+import 'package:shop/components/product/product_card.dart';
 import 'package:shop/models/product_model.dart';
+// 2. CHANGED: Imported AllProductsScreen for navigation
+import 'package:shop/screens/product/views/AllProductsScreen.dart';
+import 'package:shop/screens/product/views/MostPopularScreen.dart';
 import 'package:shop/services/products_api_service.dart';
-
 import '../../../../constants.dart';
 import '../../../../route/route_constants.dart';
 
 class MostPopular extends StatefulWidget {
-  const MostPopular({
-    super.key,
-  });
+  const MostPopular({super.key});
 
   @override
   State<MostPopular> createState() => _MostPopularState();
@@ -17,9 +18,31 @@ class MostPopular extends StatefulWidget {
 
 class _MostPopularState extends State<MostPopular> {
   final ProductsApiService _apiService = ProductsApiService();
+
+  // 3. ADDED: State variables to match PopularProducts.dart
   List<ProductModel> _mostPopularProducts = [];
   bool _isLoading = true;
   bool _hasError = false;
+  final titleStyle = TextStyle(
+      color: Color(0xFF06055c), fontWeight: FontWeight.bold, fontSize: 16);
+  List<ProductModel> _firstRowProducts = [];
+  List<ProductModel> _secondRowProducts = [];
+
+  // 4. ADDED: Height getters from PopularProducts.dart
+  double get listHeight {
+    final screenWidth = MediaQuery.of(context).size.width;
+    return screenWidth < 600 ? 220.0 : 240.0;
+  }
+
+  double get totalHeight {
+    if (_isLoading || _hasError || _mostPopularProducts.isEmpty) {
+      return listHeight;
+    }
+    if (_secondRowProducts.isNotEmpty) {
+      return (listHeight * 2) + defaultPadding;
+    }
+    return listHeight;
+  }
 
   @override
   void initState() {
@@ -27,6 +50,7 @@ class _MostPopularState extends State<MostPopular> {
     _fetchMostPopularProducts();
   }
 
+  // 5. REPLACED: Fetch logic now matches PopularProducts.dart
   Future<void> _fetchMostPopularProducts() async {
     try {
       setState(() {
@@ -35,20 +59,26 @@ class _MostPopularState extends State<MostPopular> {
       });
 
       final allProducts = await _apiService.getAllProducts();
-      
-      // Filter products that are marked as popular
-      final popularProducts = allProducts.where((product) => 
-        product.isPopular == true
-      ).toList();
+      final popularProducts = allProducts.where((product) => product.isPopular == true).toList();
 
-      // If no products are marked as popular, show middle 6 products
+      // Fetches 12 products and splits them
       if (popularProducts.isEmpty && allProducts.isNotEmpty) {
-        final startIndex = allProducts.length > 6 ? (allProducts.length ~/ 2) - 3 : 0;
-        final endIndex = startIndex + 6;
-        _mostPopularProducts = allProducts.skip(startIndex).take(endIndex - startIndex).toList();
+        _mostPopularProducts = allProducts.take(12).toList();
       } else {
-        _mostPopularProducts = popularProducts.take(6).toList();
+        _mostPopularProducts = popularProducts.take(12).toList();
       }
+
+      if (_mostPopularProducts.length > 6) {
+        _firstRowProducts = _mostPopularProducts.sublist(0, 6);
+        _secondRowProducts = _mostPopularProducts.sublist(
+          6,
+          _mostPopularProducts.length > 12 ? 12 : _mostPopularProducts.length,
+        );
+      } else {
+        _firstRowProducts = _mostPopularProducts;
+        _secondRowProducts = [];
+      }
+
 
       setState(() {
         _isLoading = false;
@@ -64,96 +94,169 @@ class _MostPopularState extends State<MostPopular> {
 
   @override
   Widget build(BuildContext context) {
-    // Make height responsive
+    // 6. ADDED: screenWidth calculation
     final screenWidth = MediaQuery.of(context).size.width;
-    final listHeight = screenWidth < 600 ? 95.0 : 114.0;
-    
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const SizedBox(height: defaultPadding / 2),
-        Padding(
-          padding: const EdgeInsets.all(defaultPadding),
-          child: Text(
-            "Most popular",
-            style: Theme.of(context).textTheme.titleSmall,
-          ),
-        ),
-        if (_isLoading)
-          SizedBox(
-            height: listHeight,
-            child: const Center(
-              child: CircularProgressIndicator(),
-            ),
-          )
-        else if (_hasError)
-          SizedBox(
-            height: listHeight,
-            child: Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(Icons.error_outline, size: 48, color: Colors.grey),
-                  const SizedBox(height: 8),
-                  Text(
-                    "Failed to load products",
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey,
+
+    return Container(
+      // 7. CHANGED: Background color to match
+      color: const Color(0xFFFAFAFA), // Light background
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SizedBox(height: defaultPadding),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: defaultPadding),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                // 8. CHANGED: Title to match
+                Text(
+                    "Most Popular Products",
+                    style: titleStyle
+                ),
+                TextButton(
+                  // 9. CHANGED: Navigation to match
+                  onPressed: () {
+                    Navigator.pushReplacement(
+                      context,
+                      MaterialPageRoute(builder: (builder) => MostPopularScreen()),
+                    );
+                  },
+                  child: Text(
+                    "SEE ALL",
+                    style: TextStyle(
+                      color: const Color(0xFF020953),
+                      fontWeight: FontWeight.w600,
+                      fontSize: 12,
+                      letterSpacing: 0.8,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  ElevatedButton(
-                    onPressed: _fetchMostPopularProducts,
-                    child: const Text("Retry"),
-                  ),
-                ],
-              ),
+                ),
+              ],
             ),
-          )
-        else if (_mostPopularProducts.isEmpty)
+          ),
+          const SizedBox(height: defaultPadding / 2),
+          // 10. CHANGED: Height and child widget to match
           SizedBox(
-            height: listHeight,
-            child: Center(
-              child: Text(
-                "No popular products available",
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Colors.grey,
+            height: totalHeight,
+            child: _buildContent(screenWidth),
+          ),
+          const SizedBox(height: defaultPadding),
+        ],
+      ),
+    );
+  }
+
+  // 11. REPLACED: _buildProductList with _buildContent from PopularProducts.dart
+  Widget _buildContent(double screenWidth) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Color(0xFF020953)));
+    }
+
+    if (_hasError) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.error_outline, size: 48, color: Colors.grey),
+            const SizedBox(height: 8),
+            Text(
+              "Failed to load products",
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            ElevatedButton(
+              onPressed: _fetchMostPopularProducts,
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF020953)),
+              child: const Text("Retry"),
+            ),
+          ],
+        ),
+      );
+    }
+
+    if (_mostPopularProducts.isEmpty) {
+      return Center(
+        child: Text(
+          "No popular products available",
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+        ),
+      );
+    }
+
+    // This now builds the two rows
+    return Column(
+      children: [
+        // First Row
+        SizedBox(
+          height: listHeight,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            itemCount: _firstRowProducts.length,
+            itemBuilder: (context, index) => Padding(
+              padding: EdgeInsets.only(
+                left: defaultPadding,
+                right: index == _firstRowProducts.length - 1 ? defaultPadding : 0,
+              ),
+              child: SizedBox(
+                width: screenWidth < 600 ? 140 : 160,
+                // 12. CHANGED: Using ProductCard
+                child: ProductCard(
+                  image: _firstRowProducts[index].image,
+                  brandName: _firstRowProducts[index].brandName ?? "BAETOWN",
+                  title: _firstRowProducts[index].title,
+                  price: _firstRowProducts[index].price,
+                  priceAfetDiscount: _firstRowProducts[index].priceAfetDiscount,
+                  dicountpercent: _firstRowProducts[index].dicountpercent,
+                  product: _firstRowProducts[index],
+                  press: () {
+                    Navigator.pushNamed(
+                      context,
+                      productDetailsScreenRoute,
+                      arguments: _firstRowProducts[index],
+                    );
+                  },
                 ),
               ),
             ),
-          )
-        else
+          ),
+        ),
+        if (_secondRowProducts.isNotEmpty) const SizedBox(height: defaultPadding),
+        if (_secondRowProducts.isNotEmpty)
+        // Second Row
           SizedBox(
             height: listHeight,
             child: ListView.builder(
               scrollDirection: Axis.horizontal,
-              itemCount: _mostPopularProducts.length,
+              itemCount: _secondRowProducts.length,
               itemBuilder: (context, index) => Padding(
                 padding: EdgeInsets.only(
                   left: defaultPadding,
-                  right: index == _mostPopularProducts.length - 1
-                      ? defaultPadding
-                      : 0,
+                  right: index == _secondRowProducts.length - 1 ? defaultPadding : 0,
                 ),
                 child: SizedBox(
-                  width: screenWidth < 600 ? 230 : 256,
-                  child: SecondaryProductCard(
-                    image: _mostPopularProducts[index].image,
-                    brandName: _mostPopularProducts[index].brandName ?? "BAETOWN",
-                    title: _mostPopularProducts[index].title,
-                    price: _mostPopularProducts[index].price,
-                    priceAfetDiscount: _mostPopularProducts[index].priceAfetDiscount,
-                    dicountpercent: _mostPopularProducts[index].dicountpercent,
-                    product: _mostPopularProducts[index],
+                  width: screenWidth < 600 ? 140 : 160,
+                  // 13. CHANGED: Using ProductCard
+                  child: ProductCard(
+                    image: _secondRowProducts[index].image,
+                    brandName: _secondRowProducts[index].brandName ?? "BAETOWN",
+                    title: _secondRowProducts[index].title,
+                    price: _secondRowProducts[index].price,
+                    priceAfetDiscount: _secondRowProducts[index].priceAfetDiscount,
+                    dicountpercent: _secondRowProducts[index].dicountpercent,
+                    product: _secondRowProducts[index],
                     press: () {
-                      Navigator.pushNamed(context, productDetailsScreenRoute,
-                          arguments: _mostPopularProducts[index]);
+                      Navigator.pushNamed(
+                        context,
+                        productDetailsScreenRoute,
+                        arguments: _secondRowProducts[index],
+                      );
                     },
                   ),
                 ),
               ),
             ),
-          )
+          ),
       ],
     );
   }
