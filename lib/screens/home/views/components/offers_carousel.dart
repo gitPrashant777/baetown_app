@@ -1,17 +1,9 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../../constants.dart';
 
-// A list of images for the carousel
-const List<String> heroImages = [
-  "https://www.meglow.in/cdn/shop/files/MeglowWomenBeautyComboCREAMFACEWASHPEEOFF1.png?v=1729852151", // Original image
-  "https://www.jiomart.com/images/product/original/rvwdircgyo/meglow-anti-aging-combo-pack-of-2-meglow-anti-ageing-cream-30-gm-with-skin-brightening-cream-for-women-spf-15-50-gm-for-hydrating-toning-rejuvenating-dull-skin-product-images-orvwdircgyo-p602941253-0-202307051210.jpg?im=Resize=(420,420)", // Your image
-  "https://www.meglow.in/cdn/shop/files/01_Combo.jpg?v=1735824475" // Third image
-];
-
 class OffersCarousel extends StatefulWidget {
-  const OffersCarousel({
-    super.key,
-  });
+  const OffersCarousel({super.key});
 
   @override
   State<OffersCarousel> createState() => _OffersCarouselState();
@@ -20,6 +12,20 @@ class OffersCarousel extends StatefulWidget {
 class _OffersCarouselState extends State<OffersCarousel> {
   int _currentPage = 0;
   late PageController _pageController;
+
+  // Fallback images
+  final List<Map<String, dynamic>> fallbackBanners = [
+    {
+      'imageUrl': "https://www.meglow.in/cdn/shop/files/MeglowWomenBeautyComboCREAMFACEWASHPEEOFF1.png?v=1729852151",
+      'title': 'MIDNIGHT\nLOTION',
+      'subtitle': '55€'
+    },
+    {
+      'imageUrl': "https://www.meglow.in/cdn/shop/files/01_Combo.jpg?v=1735824475",
+      'title': 'SPECIAL\nOFFER',
+      'subtitle': '30% OFF'
+    }
+  ];
 
   @override
   void initState() {
@@ -35,167 +41,91 @@ class _OffersCarouselState extends State<OffersCarousel> {
 
   @override
   Widget build(BuildContext context) {
-    // Height for the hero banner
-    double heroHeight = MediaQuery.of(context).size.height * 0.6;
+    double heroHeight = MediaQuery.of(context).size.width > 600
+        ? MediaQuery.of(context).size.height * 0.4
+        : MediaQuery.of(context).size.height * 0.56;
 
-    // Style for the vertical text
-    final verticalTextStyle = TextStyle(
-      color: whiteColor.withOpacity(0.8), // Base color (will be overridden)
-      fontFamily: kSansSerifFont,
-      fontWeight: FontWeight.bold,
-      letterSpacing: 1.5,
-      fontSize: 12,
-    );
+    // STREAM: Fetch 'Home Carousel' type only
+    return StreamBuilder<QuerySnapshot>(
+      stream: FirebaseFirestore.instance
+          .collection('banners')
+          .where('type', isEqualTo: 'Home Carousel') // <--- FILTER
+          .orderBy('createdAt', descending: true)
+          .snapshots(),
+      builder: (context, snapshot) {
+        List<Map<String, dynamic>> banners = [];
 
-    return Container(
-      height: heroHeight,
-      width: double.infinity,
-      child: Stack(
-        children: [
-          // --- 1. Horizontally Scrolling Images ---
-          PageView.builder(
-            controller: _pageController,
-            itemCount: heroImages.length,
-            onPageChanged: (index) {
-              setState(() {
-                _currentPage = index;
-              });
-            },
-            itemBuilder: (context, index) {
-              return Container(
-                decoration: BoxDecoration(
-                  image: DecorationImage(
-                    fit: BoxFit.cover,
-                    image: NetworkImage(heroImages[index]),
-                  ),
-                ),
-              );
-            },
+        if (snapshot.hasData && snapshot.data!.docs.isNotEmpty) {
+          banners = snapshot.data!.docs.map((doc) => doc.data() as Map<String, dynamic>).toList();
+        } else {
+          banners = fallbackBanners;
+        }
+
+        return Container(
+          height: heroHeight,
+          width: double.infinity,
+          margin: const EdgeInsets.only(bottom: defaultPadding * 0.6),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.09), blurRadius: 23, offset: const Offset(0, 8))],
           ),
-
-          // Content on top of the image
-          Positioned(
-            bottom: defaultPadding * 2,
-            left: defaultPadding,
-            right: defaultPadding,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(18),
+            child: Stack(
               children: [
-
-                const SizedBox(height: defaultPadding / 2),
-                Text(
-                  "MIDNIGHT \nLOTION",
-                  style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                    fontFamily: kSerifFont, // The new Serif font
-                    color: Color(0xFF06055c),
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    height: 1.1,
-                  ),
+                PageView.builder(
+                  controller: _pageController,
+                  itemCount: banners.length,
+                  onPageChanged: (index) => setState(() => _currentPage = index),
+                  itemBuilder: (context, index) {
+                    final banner = banners[index];
+                    return Image.network(
+                      banner['imageUrl'] ?? '',
+                      fit: BoxFit.cover,
+                      errorBuilder: (c, e, s) => Container(color: Colors.grey[200]),
+                    );
+                  },
                 ),
-                const SizedBox(height: defaultPadding / 2),
-                Text(
-                  "55€", // Price
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                    fontFamily: kSerifFont,
-                    color: Color(0xFF06055c),
-                    fontWeight: FontWeight.w400,
-                  ),
-                ),
-                // --- 2. Dot Indicators ---
-                Padding(
-                  padding: const EdgeInsets.symmetric(vertical: defaultPadding),
-                  child: Row(
-                    children: List.generate(
-                      heroImages.length,
-                          (index) => _buildDot(isActive: index == _currentPage),
-                    ),
+                // Content Overlay
+                Positioned(
+                  bottom: defaultPadding * 2.1,
+                  left: defaultPadding * 1.1,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (banners[_currentPage]['title'] != null)
+                        Text(
+                          (banners[_currentPage]['title'] as String).replaceAll('\\n', '\n'),
+                          style: const TextStyle(color: Color(0xFF06055c), fontWeight: FontWeight.bold, fontSize: 24, height: 1.1),
+                        ),
+                      const SizedBox(height: 8),
+                      if (banners[_currentPage]['subtitle'] != null)
+                        Text(
+                          banners[_currentPage]['subtitle'],
+                          style: const TextStyle(color: Color(0xFF06055c), fontWeight: FontWeight.w600, fontSize: 16),
+                        ),
+                      const SizedBox(height: 16),
+                      Row(children: List.generate(banners.length, (index) => _buildDot(isActive: index == _currentPage))),
+                    ],
                   ),
                 ),
               ],
             ),
           ),
-
-          // --- 3. Arrow on the right side ---
-          Positioned(
-            bottom: defaultPadding * 2,
-            right: defaultPadding,
-            child: IconButton(
-              icon:
-              const Icon(Icons.arrow_forward, color: Color(0xFF06055c), size: 28),
-              onPressed: () {
-                if (_currentPage < heroImages.length - 1) {
-                  _pageController.nextPage(
-                    duration: defaultDuration,
-                    curve: Curves.ease,
-                  );
-                } else {
-                  _pageController.animateToPage(
-                    0,
-                    duration: defaultDuration,
-                    curve: Curves.ease,
-                  );
-                }
-              },
-            ),
-          ),
-
-          // --- 4. Vertical text on the right (UPDATED) ---
-          Positioned(
-            right: defaultPadding / 2,
-            top: 0,
-            bottom: defaultPadding * 10, // Leave space for bottom elements
-            child: RotatedBox(
-              quarterTurns: 1, // Rotates the Column vertically
-              child: Row( // This Row acts like a Column due to RotatedBox
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  const SizedBox(width:45),
-
-                  _buildVerticalLabel("Flash Sale", style: verticalTextStyle),
-                  // --- GAP INCREASED ---
-                  const SizedBox(width: defaultPadding * 1),
-                  _buildVerticalLabel("50% offer", style: verticalTextStyle),
-                  // --- GAP INCREASED ---
-
-                ],
-              ),
-            ),
-          )
-        ],
-      ),
+        );
+      },
     );
   }
 
-  // Helper widget for the vertical labels
-  Widget _buildVerticalLabel(String text, {required TextStyle style}) {
-    return Container(
-      padding: const EdgeInsets.symmetric(
-          horizontal: defaultPadding,
-          vertical: defaultPadding / 4),
-      decoration: BoxDecoration(
-        color: Color(0xFF06055c), // Your dark blue color
-        borderRadius:
-        BorderRadius.circular(defaultBorderRadious),
-      ),
-      child: Text(
-        text,
-        style: style.copyWith(
-            color: whiteColor, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  /// Helper widget for the dots
   Widget _buildDot({required bool isActive}) {
-    return Container(
-      margin: const EdgeInsets.only(right: defaultPadding / 4),
-      height: 4,
-      width: isActive ? 24 : 12, // Active dot is longer
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      margin: const EdgeInsets.only(right: 6),
+      height: 5,
+      width: isActive ? 24 : 10,
       decoration: BoxDecoration(
-        // Use the 'isActive' boolean to select the color
-        color: isActive ? Color(0xFF06055c) : Colors.white,
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        color: isActive ? const Color(0xFF06055c) : Colors.white.withOpacity(0.8),
+        borderRadius: BorderRadius.circular(12),
       ),
     );
   }

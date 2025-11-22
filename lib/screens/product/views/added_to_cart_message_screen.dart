@@ -42,7 +42,9 @@ class AddedToCartMessageScreen extends StatelessWidget {
               ),
               const SizedBox(height: defaultPadding),
               ElevatedButton(
-                onPressed: () {},
+                onPressed: () {
+                  Navigator.pushReplacement(context, MaterialPageRoute(builder: (builder)=>CartScreen()));
+                },
                 child: const Text("Checkout"),
               ),
               const Spacer(),

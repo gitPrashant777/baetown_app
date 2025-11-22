@@ -1,84 +1,86 @@
-import 'dart:convert';
-import 'package:http/http.dart' as http;
+import 'package:shop/models/product_model.dart';
 import 'package:shop/services/api_config.dart';
 import 'package:shop/services/api_service.dart';
 
 class SearchApiService {
   final ApiService _apiService = ApiService();
 
-  // Search products with various filters
-  Future<Map<String, dynamic>> searchProducts({
+  // Search products by query string
+  Future<List<ProductModel>> searchProducts({
     required String query,
     String? category,
     double? minPrice,
     double? maxPrice,
     double? minRating,
-    String? sortBy, // price_asc, price_desc, rating, newest, popular
+    String? sortBy,
     int page = 1,
     int limit = 20,
   }) async {
     try {
-      // Build query parameters
+      // --- FIX 1: Use 'keyword' instead of 'q' ---
+      // Standard MERN backends look for req.query.keyword
       Map<String, String> queryParams = {
-        'q': query,
+        'keyword': query,
         'page': page.toString(),
         'limit': limit.toString(),
       };
 
       if (category != null) queryParams['category'] = category;
-      if (minPrice != null) queryParams['minPrice'] = minPrice.toString();
-      if (maxPrice != null) queryParams['maxPrice'] = maxPrice.toString();
-      if (minRating != null) queryParams['minRating'] = minRating.toString();
-      if (sortBy != null) queryParams['sortBy'] = sortBy;
+      if (minPrice != null) queryParams['price[gte]'] = minPrice.toString();
+      if (maxPrice != null) queryParams['price[lte]'] = maxPrice.toString();
+      if (minRating != null) queryParams['ratings[gte]'] = minRating.toString();
 
-      // Convert to query string
-      String queryString = queryParams.entries
-          .map((e) => '${e.key}=${Uri.encodeComponent(e.value)}')
-          .join('&');
-
-      final response = await _apiService.get<Map<String, dynamic>>(
-        '${ApiConfig.searchEndpoint}/products?$queryString',
+      // --- FIX 2: Use the main Products Endpoint ---
+      // The screenshot showed /search is for saving history, not fetching items.
+      // We search by filtering the main product list.
+      final response = await _apiService.get(
+        ApiConfig.productsEndpoint, // Usually '/products'
+        queryParams: queryParams,
         requiresAuth: false,
       );
-      
+
       if (response.success && response.data != null) {
-        return response.data!;
+        final data = response.data!;
+
+        // Standard MERN response: { "success": true, "products": [...] }
+        if (data['products'] != null && data['products'] is List) {
+          return (data['products'] as List)
+              .map((item) => ProductModel.fromJson(item))
+              .toList();
+        }
       }
-      print('Failed to search products: ${response.error}');
-      return {
-        'products': [],
-        'totalResults': 0,
-        'totalPages': 0,
-        'currentPage': 1,
-        'filters': {},
-      };
+
+      print('Search returned empty or invalid format');
+      return [];
+
     } catch (e) {
       print('Error searching products: $e');
-      return {
-        'products': [],
-        'totalResults': 0,
-        'totalPages': 0,
-        'currentPage': 1,
-        'filters': {},
-      };
+      return [];
     }
   }
 
-  // Get search suggestions/autocomplete
-  Future<List<String>> getSearchSuggestions(String query) async {
+  // Get user's search history (Kept original endpoint as it matches screenshot GET /search/data)
+  Future<List<String>> getSearchHistory() async {
     try {
       final response = await _apiService.get<Map<String, dynamic>>(
-        '${ApiConfig.searchEndpoint}/suggestions?q=${Uri.encodeComponent(query)}',
-        requiresAuth: false,
+        '${ApiConfig.searchEndpoint}/data', // Matches your screenshot GET /search/data
+        requiresAuth: true,
       );
-      
+
       if (response.success && response.data != null) {
-        return List<String>.from(response.data!['suggestions'] ?? []);
+        // Check for specific keys based on your screenshot's implied structure
+        // Often returned as { recentSearches: [...] }
+        if (response.data!['recent'] != null) {
+          return List<String>.from(response.data!['recent']);
+        } else if (response.data!['history'] != null) {
+          return List<String>.from(response.data!['history']);
+        }
+        // Fallback to checking the root if it's just a list
+        return [];
       }
-      print('Failed to get search suggestions: ${response.error}');
       return [];
     } catch (e) {
-      print('Error getting search suggestions: $e');
+      print('Error getting search history: $e');
       return [];
     }
   }
@@ -87,117 +89,33 @@ class SearchApiService {
   Future<List<String>> getPopularSearches() async {
     try {
       final response = await _apiService.get<Map<String, dynamic>>(
-        '${ApiConfig.searchEndpoint}/popular',
+        '${ApiConfig.searchEndpoint}/data',
         requiresAuth: false,
       );
-      
+
       if (response.success && response.data != null) {
-        return List<String>.from(response.data!['popularSearches'] ?? []);
+        if (response.data!['popular'] != null) {
+          return List<String>.from(response.data!['popular']);
+        }
       }
-      print('Failed to get popular searches: ${response.error}');
       return [];
     } catch (e) {
-      print('Error getting popular searches: $e');
       return [];
     }
   }
 
-  // Get user's search history
-  Future<List<String>> getSearchHistory() async {
-    try {
-      final response = await _apiService.get<Map<String, dynamic>>(
-        '${ApiConfig.searchEndpoint}/history',
-        requiresAuth: true,
-      );
-      
-      if (response.success && response.data != null) {
-        return List<String>.from(response.data!['searchHistory'] ?? []);
-      }
-      print('Failed to get search history: ${response.error}');
-      return [];
-    } catch (e) {
-      print('Error getting search history: $e');
-      return [];
-    }
-  }
-
-  // Clear user's search history
+  // Clear history
   Future<bool> clearSearchHistory() async {
     try {
+      // Assuming DELETE /search/history based on standard patterns
+      // You might need to adjust this if your API is different
       final response = await _apiService.delete<Map<String, dynamic>>(
         '${ApiConfig.searchEndpoint}/history',
         requiresAuth: true,
       );
       return response.success;
     } catch (e) {
-      print('Error clearing search history: $e');
       return false;
-    }
-  }
-
-  // Search by image (if supported)
-  Future<Map<String, dynamic>> searchByImage(String imageBase64) async {
-    try {
-      final searchData = {
-        'image': imageBase64,
-      };
-
-      final response = await _apiService.post<Map<String, dynamic>>(
-        '${ApiConfig.searchEndpoint}/image',
-        body: searchData,
-        requiresAuth: false,
-      );
-
-      if (response.success && response.data != null) {
-        return response.data!;
-      }
-      print('Failed to search by image: ${response.error}');
-      return {
-        'products': [],
-        'confidence': 0.0,
-      };
-    } catch (e) {
-      print('Error searching by image: $e');
-      return {
-        'products': [],
-        'confidence': 0.0,
-      };
-    }
-  }
-
-  // Get search filters for a category
-  Future<Map<String, dynamic>> getSearchFilters(String? category) async {
-    try {
-      String endpoint = '${ApiConfig.searchEndpoint}/filters';
-      if (category != null) {
-        endpoint += '?category=${Uri.encodeComponent(category)}';
-      }
-
-      final response = await _apiService.get<Map<String, dynamic>>(
-        endpoint,
-        requiresAuth: false,
-      );
-      
-      if (response.success && response.data != null) {
-        return response.data!;
-      }
-      print('Failed to get search filters: ${response.error}');
-      return {
-        'priceRange': {'min': 0, 'max': 1000},
-        'brands': [],
-        'sizes': [],
-        'colors': [],
-        'ratings': [1, 2, 3, 4, 5],
-      };
-    } catch (e) {
-      print('Error getting search filters: $e');
-      return {
-        'priceRange': {'min': 0, 'max': 1000},
-        'brands': [],
-        'sizes': [],
-        'colors': [],
-        'ratings': [1, 2, 3, 4, 5],
-      };
     }
   }
 }

@@ -1,27 +1,31 @@
+// consultant_login_screen.dart
 import 'package:flutter/material.dart';
-import 'package:shop/constants.dart';
-import 'package:shop/route/route_constants.dart';
-import 'package:shop/models/user_session.dart';
-import 'package:shop/models/simple_token_manager.dart';
-import 'package:shop/screens/auth/views/ConsultantLoginScreen.dart';
-import 'package:shop/services/auth_api_service.dart';
-import 'package:shop/services/api_service.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shop/screens/Consultation/ConsultantDashboardScreen.dart';
 
-class LoginScreen extends StatefulWidget {
-  const LoginScreen({super.key});
+import '../../Consultation/Ui/AllConsultationsScreen.dart';
+import 'ConsultantSignupScreen.dart';
+
+class ConsultantLoginScreen extends StatefulWidget {
+  const ConsultantLoginScreen({super.key});
 
   @override
-  State<LoginScreen> createState() => _LoginScreenState();
+  State<ConsultantLoginScreen> createState() => _ConsultantLoginScreenState();
 }
 
-class _LoginScreenState extends State<LoginScreen> {
+class _ConsultantLoginScreenState extends State<ConsultantLoginScreen> {
   final GlobalKey<FormState> _formKey = GlobalKey<FormState>();
-  final AuthApiService _authApi = AuthApiService();
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
   bool _isLoading = false;
   bool _isPasswordVisible = false;
+
+  static const brandPrimary = Color(0xFF020953);
 
   @override
   void dispose() {
@@ -30,126 +34,60 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  void _handleLogin() async {
+  Future<void> _handleLogin() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
 
       try {
-        String email = _emailController.text.trim();
-        String password = _passwordController.text.trim();
-
-        // ----------------------------------------------------
-        // ✅ HARD-CODED ADMIN LOGIN CHECK (NO API CALL)
-        // ----------------------------------------------------
-        if (email == "adminsaksham@gmail.com" && password == "Saksham599@") {
-          Map<String, dynamic> adminUser = {
-            "email": email,
-            "role": "admin",
-            "name": "Admin"
-          };
-
-          String dummyToken = "1234567890abcdefghijklmnopqrstuvxyzABCDE123456";
-
-          // Save session
-          SimpleTokenManager.storeLoginToken(dummyToken, adminUser);
-          await UserSession.setUserSession(email, token: dummyToken, userData: adminUser);
-
-          final apiService = ApiService();
-          await apiService.setAuthToken(dummyToken);
-
-          if (mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(
-                content: Text("Admin login successful!"),
-                backgroundColor: Color(0xFF1A1A2E),
-              ),
-            );
-
-            Navigator.pushNamedAndRemoveUntil(
-              context,
-              adminPanelScreenRoute,
-                  (route) => false,
-            );
-          }
-
-          setState(() => _isLoading = false);
-          return; // Stop execution → do not call API
-        }
-
-        // ----------------------------------------------------
-        // Normal API login happens only when hardcoded admin fails
-        // ----------------------------------------------------
-        final response = await _authApi.login(
-          email: email,
-          password: password,
+        // Sign in with Firebase Auth
+        final UserCredential userCredential = await _auth.signInWithEmailAndPassword(
+          email: _emailController.text.trim(),
+          password: _passwordController.text,
         );
 
-        if (response.success && response.data != null) {
-          final userData = response.data!;
-          String? authToken = userData['token'] ??
-              userData['accessToken'] ??
-              userData['data']?['token'];
+        // Check if user is a consultant
+        final consultantDoc = await _firestore
+            .collection('consultants')
+            .doc(userCredential.user!.uid)
+            .get();
 
-          Map<String, dynamic>? user = userData['user'] ??
-              userData['data']?['user'] ??
-              (userData['email'] != null ? userData : null);
+        if (!consultantDoc.exists) {
+          throw Exception('This account is not registered as a consultant');
+        }
 
-          if (user != null && authToken != null) {
-            SimpleTokenManager.storeLoginToken(authToken, user);
-            await UserSession.setUserSession(user['email'], token: authToken, userData: user);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Welcome back, Doctor!'),
+              backgroundColor: brandPrimary,
+            ),
+          );
 
-            final apiService = ApiService();
-            await apiService.setAuthToken(authToken);
+          // Navigate to consultant dashboard
+          Navigator.push(context, MaterialPageRoute(builder: (builder)=>ConsultantDashboardScreen()));
+        }
+      } on FirebaseAuthException catch (e) {
+        String errorMessage = 'Login failed';
+        if (e.code == 'user-not-found') {
+          errorMessage = 'No consultant account found with this email';
+        } else if (e.code == 'wrong-password') {
+          errorMessage = 'Incorrect password';
+        }
 
-            String? userRole = user['role']?.toString().toLowerCase();
-            bool isAdmin = userRole == 'admin';
-
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(isAdmin ? 'Admin login successful!' : 'Welcome back!'),
-                  backgroundColor: const Color(0xFF1A1A2E),
-                ),
-              );
-
-              Navigator.pushNamedAndRemoveUntil(
-                context,
-                isAdmin ? adminPanelScreenRoute : entryPointScreenRoute,
-                    (route) => false,
-              );
-            }
-          }
-        } else {
-          if (response.error != null &&
-              response.error!.toLowerCase().contains('user not found')) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Account not found. Redirecting to registration...'),
-                  backgroundColor: Colors.orange,
-                  duration: Duration(seconds: 2),
-                ),
-              );
-              await Future.delayed(const Duration(seconds: 2));
-              if (mounted) Navigator.pushReplacementNamed(context, signUpScreenRoute);
-            }
-          } else {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text(response.error ?? 'Login failed'),
-                  backgroundColor: Colors.red,
-                ),
-              );
-            }
-          }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(errorMessage),
+              backgroundColor: Colors.red[700],
+            ),
+          );
         }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Login error: ${e.toString()}'),
-              backgroundColor: Colors.red,
+              content: Text(e.toString()),
+              backgroundColor: Colors.red[700],
             ),
           );
         }
@@ -169,7 +107,7 @@ class _LoginScreenState extends State<LoginScreen> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              // Premium header image with gradient overlay
+              // Header Image
               Stack(
                 children: [
                   Container(
@@ -179,14 +117,14 @@ class _LoginScreenState extends State<LoginScreen> {
                       color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE8E6E3),
                     ),
                     child: Image.asset(
-                      "assets/images/imgl.png",
+                      "assets/images/docl.jpg",
                       fit: BoxFit.fill,
                       errorBuilder: (context, error, stackTrace) {
                         return Container(
                           color: isDark ? const Color(0xFF1A1A1A) : const Color(0xFFE8E6E3),
                           child: Center(
                             child: Icon(
-                              Icons.spa_outlined,
+                              Icons.medical_services_outlined,
                               size: 60,
                               color: isDark ? Colors.white24 : Colors.black12,
                             ),
@@ -214,7 +152,7 @@ class _LoginScreenState extends State<LoginScreen> {
                 ],
               ),
 
-              // Form content
+              // Form Content
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24.0),
                 child: Column(
@@ -222,31 +160,48 @@ class _LoginScreenState extends State<LoginScreen> {
                   children: [
                     const SizedBox(height: 8),
 
-                    // Header Section
-                    Text(
-                      'WELCOME BACK',
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 2.5,
-                        color: isDark ? Colors.white70 : Colors.black54,
-                      ),
+                    // Header
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            color: brandPrimary.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: const Icon(
+                            Icons.medical_services,
+                            color: brandPrimary,
+                            size: 20,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          'CONSULTANT LOGIN',
+                          style: TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 2.5,
+                            color: isDark ? Colors.white70 : Colors.black54,
+                          ),
+                        ),
+                      ],
                     ),
                     const SizedBox(height: 16),
                     Text(
-                      'Sign In',
+                      'Welcome Back',
                       style: TextStyle(
                         fontSize: 36,
                         fontWeight: FontWeight.w300,
                         letterSpacing: 1.2,
                         height: 1.1,
-                        color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                        color: isDark ? Colors.white : brandPrimary,
                         fontFamily: 'Serif',
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Access your account',
+                      'Sign in to your consultant account',
                       style: TextStyle(
                         fontSize: 15,
                         fontWeight: FontWeight.w400,
@@ -255,9 +210,9 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 25),
+                    const SizedBox(height: 40),
 
-                    // Form Section
+                    // Form
                     Form(
                       key: _formKey,
                       child: Column(
@@ -306,8 +261,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                                borderSide: const BorderSide(
+                                  color: brandPrimary,
                                   width: 1.5,
                                 ),
                               ),
@@ -381,8 +336,8 @@ class _LoginScreenState extends State<LoginScreen> {
                               ),
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(4),
-                                borderSide: BorderSide(
-                                  color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                                borderSide: const BorderSide(
+                                  color: brandPrimary,
                                   width: 1.5,
                                 ),
                               ),
@@ -397,38 +352,11 @@ class _LoginScreenState extends State<LoginScreen> {
                               return null;
                             },
                           ),
-
-                          const SizedBox(height: 16),
-
-                          // Forgot Password
-                          Align(
-                            alignment: Alignment.centerRight,
-                            child: TextButton(
-                              onPressed: () {
-                                Navigator.pushNamed(context, passwordRecoveryScreenRoute);
-                              },
-                              style: TextButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                minimumSize: const Size(0, 0),
-                                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                              ),
-                              child: Text(
-                                'Forgot password?',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w500,
-                                  color: isDark ? Colors.white70 : Colors.black54,
-                                  letterSpacing: 0.3,
-                                  decoration: TextDecoration.underline,
-                                ),
-                              ),
-                            ),
-                          ),
                         ],
                       ),
                     ),
 
-                    const SizedBox(height: 25),
+                    const SizedBox(height: 40),
 
                     // Sign In Button
                     SizedBox(
@@ -437,22 +365,20 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: ElevatedButton(
                         onPressed: _isLoading ? null : _handleLogin,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                          foregroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+                          backgroundColor: brandPrimary,
+                          foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(4),
                           ),
                           elevation: 0,
                         ),
                         child: _isLoading
-                            ? SizedBox(
+                            ? const SizedBox(
                           height: 20,
                           width: 20,
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(
-                              isDark ? const Color(0xFF1A1A2E) : Colors.white,
-                            ),
+                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                           ),
                         )
                             : const Text(
@@ -466,7 +392,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 18),
+                    const SizedBox(height: 32),
 
                     // Sign Up Link
                     Center(
@@ -474,7 +400,7 @@ class _LoginScreenState extends State<LoginScreen> {
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Text(
-                            "Don't have an account?",
+                            "New consultant?",
                             style: TextStyle(
                               fontSize: 14,
                               color: isDark ? Colors.white60 : Colors.black54,
@@ -483,19 +409,21 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                           TextButton(
                             onPressed: () {
-                              Navigator.pushReplacementNamed(context, signUpScreenRoute);
-                            },
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(builder: (context) => ConsultantSignupScreen()),
+                              );                            },
                             style: TextButton.styleFrom(
                               padding: const EdgeInsets.only(left: 4),
                               minimumSize: const Size(0, 0),
                               tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                             ),
                             child: Text(
-                              'Sign up',
+                              'Register here',
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                                color: isDark ? Colors.white : brandPrimary,
                                 letterSpacing: 0.3,
                                 decoration: TextDecoration.underline,
                               ),
@@ -505,74 +433,7 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
 
-                    const SizedBox(height: 18),
-
-                    // Divider
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Divider(
-                            color: isDark ? Colors.white12 : Colors.black12,
-                            thickness: 1,
-                          ),
-                        ),
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 16),
-                          child: Text(
-                            'OR',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w600,
-                              color: isDark ? Colors.white38 : Colors.black38,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ),
-                        Expanded(
-                          child: Divider(
-                            color: isDark ? Colors.white12 : Colors.black12,
-                            thickness: 1,
-                          ),
-                        ),
-                      ],
-                    ),
-
-                    const SizedBox(height: 24),
-
-                    // Consultant Login Button
-                    SizedBox(
-                      width: double.infinity,
-                      height: 56,
-                      child: OutlinedButton.icon(
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => ConsultantLoginScreen()),
-                          );
-                        },
-                        icon: const Icon(Icons.medical_services_outlined, size: 20),
-                        label: const Text(
-                          'SIGN IN AS CONSULTANT',
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                            letterSpacing: 2,
-                          ),
-                        ),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF020953),
-                          side: const BorderSide(
-                            color: Color(0xFF020953),
-                            width: 1.5,
-                          ),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                        ),
-                      ),
-                    ),
-
-                    const SizedBox(height: 60),
+                    const SizedBox(height: 40),
                   ],
                 ),
               ),

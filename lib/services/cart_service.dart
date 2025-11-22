@@ -96,58 +96,71 @@ class CartService extends ChangeNotifier {
     }
   }
 
+  //
+  // Future<bool> removeFromCart({required String cartItemId, required String productId}) async {
+  //   if (cartItemId.isEmpty || productId.isEmpty) {
+  //     print("❌ CartService Error: cartItemId or productId is empty");
+  //     return false;
+  //   }
+  //
+  //   _isLoading = true;
+  //   notifyListeners();
+  //
+  //   try {
+  //     // 2. Call the API with the PRODUCT ID
+  //     final success = await _cartApi.removeFromCart(productId);
+  //
+  //     if (success) {
+  //       // 3. If success, fetch the fresh cart list from the server
+  //       await fetchCart();
+  //     } else {
+  //       _isLoading = false;
+  //       notifyListeners();
+  //     }
+  //     return success;
+  //   } catch (e) {
+  //     print("❌ Error removing from cart: $e");
+  //     _isLoading = false;
+  //     notifyListeners();
+  //     return false;
+  //   }
+  // }
 
-  Future<bool> removeFromCart({required String cartItemId, required String productId}) async {
-    if (cartItemId.isEmpty || productId.isEmpty) {
-      print("❌ CartService Error: cartItemId or productId is empty");
+  // In your cart_service.dart file
+
+// ... (keep _apiService, _cartApi, _items, _isLoading, etc.) ...
+
+// ... (keep fetchCart(), addToCart(), _updateLocalCart(), etc.) ...
+
+
+// --- REPLACE YOUR OLD updateQuantity WITH THIS ---
+  Future<bool> updateQuantity({
+    required String productId,
+    required int newQuantity,
+  }) async {
+    if (productId.isEmpty) {
+      print("❌ CartService Error: productId is empty");
       return false;
     }
 
-    _isLoading = true;
-    notifyListeners();
-
-    try {
-      // 2. Call the API with the PRODUCT ID
-      final success = await _cartApi.removeFromCart(productId);
-
-      if (success) {
-        // 3. If success, fetch the fresh cart list from the server
-        await fetchCart();
-      } else {
-        _isLoading = false;
-        notifyListeners();
-      }
-      return success;
-    } catch (e) {
-      print("❌ Error removing from cart: $e");
-      _isLoading = false;
-      notifyListeners();
-      return false;
-    }
-  }
-
-  Future<bool> updateQuantity({required String cartItemId, required String productId, required int newQuantity}) async {
-    if (cartItemId.isEmpty || productId.isEmpty) {
-      print("❌ CartService Error: cartItemId or productId is empty");
-      return false;
-    }
-
+    // If new quantity is 0, treat it as a removal
     if (newQuantity <= 0) {
-      return await removeFromCart(cartItemId: cartItemId, productId: productId);
+      return await removeFromCart(productId: productId);
     }
 
     _isLoading = true;
     notifyListeners();
 
     try {
-      // 2. Call the API with the PRODUCT ID
+      // 1. Call the correct API endpoint: _cartApi.updateCartItem
       final success = await _cartApi.updateCartItem(
-        productId: productId, // <-- Send productId
+        productId: productId,
         quantity: newQuantity,
       );
 
       if (success) {
-        // 3. If success, fetch the fresh cart list
+        // 2. On success, we MUST fetch the fresh cart list
+        //    (We can no longer do a local update)
         await fetchCart();
       } else {
         _isLoading = false;
@@ -156,6 +169,36 @@ class CartService extends ChangeNotifier {
       return success;
     } catch (e) {
       print("❌ Error updating quantity: $e");
+      _isLoading = false;
+      notifyListeners();
+      return false;
+    }
+  }
+
+// --- REPLACE YOUR OLD removeFromCart WITH THIS ---
+  Future<bool> removeFromCart({required String productId}) async {
+    if (productId.isEmpty) {
+      print("❌ CartService Error: productId is empty");
+      return false;
+    }
+
+    _isLoading = true;
+    notifyListeners();
+
+    try {
+      // 1. Call the API with the PRODUCT ID
+      final success = await _cartApi.removeFromCart(productId);
+
+      if (success) {
+        // 2. If success, fetch the fresh cart list
+        await fetchCart();
+      } else {
+        _isLoading = false;
+        notifyListeners();
+      }
+      return success;
+    } catch (e) {
+      print("❌ Error removing from cart: $e");
       _isLoading = false;
       notifyListeners();
       return false;

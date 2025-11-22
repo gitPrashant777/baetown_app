@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:provider/provider.dart';
 import 'package:shop/components/cart_button.dart';
@@ -6,7 +7,7 @@ import 'package:shop/components/custom_modal_bottom_sheet.dart';
 import 'package:shop/components/free_delivery_banner.dart';
 import 'package:shop/components/product/product_card.dart';
 import 'package:shop/constants.dart';
-import 'package:shop/route/route_constants.dart'; // Make sure route_constants.dart is imported
+import 'package:shop/route/route_constants.dart';
 import 'package:shop/services/cart_service.dart';
 import 'package:shop/services/products_api_service.dart';
 import 'package:shop/services/cart_wishlist_api_service.dart';
@@ -58,22 +59,18 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final result = await _productsApi.deleteReview(productId, reviewId);
     if (result['success'] == true) {
       setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Review deleted successfully'),
-          backgroundColor: const Color(0xFF1A1A2E),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      _showSnackBar('Review deleted successfully', isError: false);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to delete review'), backgroundColor: Colors.red),
-      );
+      _showSnackBar('Failed to delete review', isError: true);
     }
   }
 
   Future<void> submitReview() async {
+    if (_reviewController.text.trim().isEmpty) {
+      _showSnackBar('Please write a review', isError: true);
+      return;
+    }
+
     setState(() => _isSubmittingReview = true);
     final productId = widget.product.productId ?? '';
     final result = await _productsApi.submitReview(
@@ -82,21 +79,13 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       _reviewController.text.trim(),
     );
     setState(() => _isSubmittingReview = false);
+
     if (result['success'] == true) {
       _reviewController.clear();
-      setState(() {});
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Review submitted!'),
-          backgroundColor: const Color(0xFF1A1A2E),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      setState(() => _reviewRating = 5.0);
+      _showSnackBar('Review submitted!', isError: false);
     } else {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to submit review'), backgroundColor: Colors.red),
-      );
+      _showSnackBar('Failed to submit review', isError: true);
     }
   }
 
@@ -108,42 +97,26 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   Future<void> _checkWishlist() async {
     final productId = widget.product.productId ?? '';
     final isWish = await _wishlistApi.isInWishlist(productId);
-    setState(() {
-      _isInWishlist = isWish;
-    });
+    setState(() => _isInWishlist = isWish);
   }
 
   Future<void> _toggleWishlist() async {
+    HapticFeedback.lightImpact();
     final productId = widget.product.productId ?? '';
     if (_isInWishlist) {
       await _wishlistApi.removeFromWishlist(productId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Removed from wishlist'), backgroundColor: Colors.red),
-      );
+      _showSnackBar('Removed from wishlist', isError: true);
     } else {
       await _wishlistApi.addToWishlist(productId);
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Added to wishlist'),
-          backgroundColor: const Color(0xFF1A1A2E),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        ),
-      );
+      _showSnackBar('Added to wishlist', isError: false);
     }
     _checkWishlist();
   }
 
   Future<void> _addToCart() async {
+    HapticFeedback.mediumImpact();
     await _cartService.addToCart(widget.product, quantity: 1);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Added to cart!'),
-        backgroundColor: const Color(0xFF1A1A2E),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      ),
-    );
+    _showSnackBar('Added to cart!', isError: false);
   }
 
   Future<void> _buyNow() async {
@@ -153,17 +126,32 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     }
   }
 
-  bool get isProductAvailable => !widget.product.isOutOfStock && widget.product.stockQuantity > 0;
+  void _showSnackBar(String message, {required bool isError}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isError ? Colors.red[700] : const Color(0xFF020953),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  bool get isProductAvailable =>
+      !widget.product.isOutOfStock && widget.product.stockQuantity > 0;
 
   @override
   Widget build(BuildContext context) {
     final bool isCartLoading = context.watch<CartService>().isLoading;
     final isDark = Theme.of(context).brightness == Brightness.dark;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isTablet = screenWidth > 600;
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFFAF9F6),
+      backgroundColor: isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FB),
       bottomNavigationBar: Container(
-        padding: const EdgeInsets.all(20),
+        padding: EdgeInsets.all(isTablet ? 24 : 20),
         decoration: BoxDecoration(
           color: isDark ? const Color(0xFF1A1A1A) : Colors.white,
           boxShadow: [
@@ -179,50 +167,50 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
             children: [
               Expanded(
                 child: SizedBox(
-                  height: 56,
+                  height: isTablet ? 60 : 56,
                   child: ElevatedButton(
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                      foregroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+                      backgroundColor: const Color(0xFF020953),
+                      foregroundColor: Colors.white,
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                       elevation: 0,
                     ),
                     onPressed: isCartLoading ? null : _addToCart,
                     child: isCartLoading
-                        ? SizedBox(
+                        ? const SizedBox(
                       height: 20,
                       width: 20,
                       child: CircularProgressIndicator(
                         strokeWidth: 2,
-                        color: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+                        color: Colors.white,
                       ),
                     )
-                        : const Text(
+                        : Text(
                       'ADD TO CART',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: isTablet ? 14 : 13,
                         fontWeight: FontWeight.w600,
-                        letterSpacing: 2.5,
+                        letterSpacing: 1.5,
                       ),
                     ),
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              SizedBox(width: isTablet ? 16 : 12),
               Expanded(
                 child: SizedBox(
-                  height: 56,
+                  height: isTablet ? 60 : 56,
                   child: OutlinedButton(
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                      side: BorderSide(
-                        color: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                        width: 1.5,
+                      foregroundColor: const Color(0xFF020953),
+                      side: const BorderSide(
+                        color: Color(0xFF020953),
+                        width: 2,
                       ),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(4),
+                        borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     onPressed: () {
@@ -232,12 +220,12 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         child: ProductBuyNowScreen(product: widget.product),
                       );
                     },
-                    child: const Text(
+                    child: Text(
                       'BUY NOW',
                       style: TextStyle(
-                        fontSize: 13,
+                        fontSize: isTablet ? 14 : 13,
                         fontWeight: FontWeight.w600,
-                        letterSpacing: 2.5,
+                        letterSpacing: 1.5,
                       ),
                     ),
                   ),
@@ -250,37 +238,71 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
       body: SafeArea(
         child: CustomScrollView(
           slivers: [
+            // Enhanced AppBar
             SliverAppBar(
-              backgroundColor: isDark ? const Color(0xFF0F0F0F) : const Color(0xFFFAF9F6),
+              backgroundColor:
+              isDark ? const Color(0xFF0A0A0A) : const Color(0xFFF8F9FB),
               elevation: 0,
               floating: true,
-              leading: IconButton(
-                icon: Icon(
-                  Icons.arrow_back_ios,
-                  color: isDark ? Colors.white : Colors.black87,
-                  size: 20,
+              leading: Container(
+                margin: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: isDark
+                      ? Colors.white.withOpacity(0.1)
+                      : Colors.white.withOpacity(0.9),
+                  borderRadius: BorderRadius.circular(10),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 8,
+                    ),
+                  ],
                 ),
-                onPressed: () {
-                  // This will clear all routes until EntryPointScreenRoute
-                  // and then push EntryPointScreenRoute, making it the new base.
-                  Navigator.pushNamedAndRemoveUntil(
-                    context,
-                    entryPointScreenRoute, // Your dashboard route
-                        (route) => false, // Remove all previous routes
-                  );
-                },
+                child: IconButton(
+                  icon: Icon(
+                    Icons.arrow_back_rounded,
+                    color: isDark ? Colors.white : const Color(0xFF020953),
+                    size: isTablet ? 24 : 22,
+                  ),
+                  onPressed: () {
+                    Navigator.pushNamedAndRemoveUntil(
+                      context,
+                      entryPointScreenRoute,
+                          (route) => false,
+                    );
+                  },
+                ),
               ),
               actions: [
-                IconButton(
-                  onPressed: _toggleWishlist,
-                  icon: Icon(
-                    _isInWishlist ? Icons.favorite : Icons.favorite_border,
-                    color: _isInWishlist ? Colors.red : (isDark ? Colors.white : Colors.black87),
+                Container(
+                  margin: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: isDark
+                        ? Colors.white.withOpacity(0.1)
+                        : Colors.white.withOpacity(0.9),
+                    borderRadius: BorderRadius.circular(10),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.05),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: IconButton(
+                    onPressed: _toggleWishlist,
+                    icon: Icon(
+                      _isInWishlist ? Icons.favorite : Icons.favorite_border,
+                      color: _isInWishlist
+                          ? Colors.red
+                          : (isDark ? Colors.white : const Color(0xFF020953)),
+                      size: isTablet ? 24 : 22,
+                    ),
                   ),
                 ),
                 const SizedBox(width: 8),
               ],
             ),
+
             // Product Images
             ProductImages(
               images: widget.product.images.isNotEmpty
@@ -290,36 +312,42 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
 
             // Product Info Section
             SliverPadding(
-              padding: const EdgeInsets.all(24.0),
+              padding: EdgeInsets.all(isTablet ? 32.0 : 24.0),
               sliver: SliverToBoxAdapter(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     // Brand name
-                    Text(
-                      (widget.product.brandName ?? "BAETOWN").toUpperCase(),
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        letterSpacing: 2,
-                        color: isDark ? Colors.white70 : Colors.black54,
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF020953).withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        (widget.product.brandName ?? "BAETOWN").toUpperCase(),
+                        style: TextStyle(
+                          fontSize: isTablet ? 12 : 11,
+                          fontWeight: FontWeight.w600,
+                          letterSpacing: 1.5,
+                          color: const Color(0xFF020953),
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: isTablet ? 16 : 12),
 
                     // Product Title
                     Text(
                       widget.product.title ?? "Product Title",
                       style: TextStyle(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w300,
+                        fontSize: isTablet ? 32 : 28,
+                        fontWeight: FontWeight.w600,
                         letterSpacing: 0.5,
                         height: 1.2,
-                        color: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                        fontFamily: 'Serif', // Ensure this uses your kSerifFont if you want it themed
+                        color: isDark ? Colors.white : const Color(0xFF020953),
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    SizedBox(height: isTablet ? 20 : 16),
 
                     // Price
                     Row(
@@ -327,70 +355,106 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                         Text(
                           '₹${widget.product.priceAfetDiscount ?? widget.product.price}',
                           style: TextStyle(
-                            fontSize: 24,
-                            fontWeight: FontWeight.w600,
-                            color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                            fontSize: isTablet ? 28 : 24,
+                            fontWeight: FontWeight.bold,
+                            color: isDark ? Colors.white : const Color(0xFF020953),
                           ),
                         ),
                         if (widget.product.priceAfetDiscount != null) ...[
-                          const SizedBox(width: 12),
+                          SizedBox(width: isTablet ? 16 : 12),
                           Text(
                             '₹${widget.product.price}',
                             style: TextStyle(
-                              fontSize: 18,
+                              fontSize: isTablet ? 20 : 18,
                               decoration: TextDecoration.lineThrough,
                               color: isDark ? Colors.white38 : Colors.black38,
+                            ),
+                          ),
+                          SizedBox(width: isTablet ? 12 : 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: Colors.green.withOpacity(0.15),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              '${((1 - (widget.product.priceAfetDiscount! / widget.product.price)) * 100).toInt()}% OFF',
+                              style: TextStyle(
+                                fontSize: isTablet ? 12 : 11,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.green[700],
+                                letterSpacing: 0.5,
+                              ),
                             ),
                           ),
                         ],
                       ],
                     ),
 
-                    const SizedBox(height: 20),
+                    SizedBox(height: isTablet ? 24 : 20),
 
                     // Stock Status
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      padding: EdgeInsets.symmetric(
+                        horizontal: isTablet ? 14 : 12,
+                        vertical: isTablet ? 8 : 6,
+                      ),
                       decoration: BoxDecoration(
                         color: isProductAvailable
-                            ? (isDark ? Colors.green.withOpacity(0.2) : Colors.green.withOpacity(0.1))
-                            : (isDark ? Colors.red.withOpacity(0.2) : Colors.red.withOpacity(0.1)),
-                        borderRadius: BorderRadius.circular(4),
+                            ? Colors.green.withOpacity(0.1)
+                            : Colors.red.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(8),
                         border: Border.all(
                           color: isProductAvailable ? Colors.green : Colors.red,
-                          width: 1,
+                          width: 1.5,
                         ),
                       ),
-                      child: Text(
-                        isProductAvailable
-                            ? 'IN STOCK (${widget.product.stockQuantity})'
-                            : 'OUT OF STOCK',
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w600,
-                          letterSpacing: 1.5,
-                          color: isProductAvailable ? Colors.green : Colors.red,
-                        ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            isProductAvailable
+                                ? Icons.check_circle_outline
+                                : Icons.cancel_outlined,
+                            size: isTablet ? 18 : 16,
+                            color: isProductAvailable ? Colors.green : Colors.red,
+                          ),
+                          SizedBox(width: isTablet ? 8 : 6),
+                          Text(
+                            isProductAvailable
+                                ? 'IN STOCK (${widget.product.stockQuantity})'
+                                : 'OUT OF STOCK',
+                            style: TextStyle(
+                              fontSize: isTablet ? 12 : 11,
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: 1,
+                              color: isProductAvailable ? Colors.green : Colors.red,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
 
-                    const SizedBox(height: 24),
+                    SizedBox(height: isTablet ? 32 : 24),
 
                     // Description
                     Text(
                       'DESCRIPTION',
                       style: TextStyle(
-                        fontSize: 11,
+                        fontSize: isTablet ? 12 : 11,
                         fontWeight: FontWeight.w600,
                         letterSpacing: 2,
                         color: isDark ? Colors.white70 : Colors.black54,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    SizedBox(height: isTablet ? 16 : 12),
                     Text(
                       widget.product.description ?? "No description available",
                       style: TextStyle(
-                        fontSize: 15,
+                        fontSize: isTablet ? 16 : 15,
                         height: 1.6,
                         letterSpacing: 0.3,
                         color: isDark ? Colors.white70 : Colors.black87,
@@ -400,8 +464,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 ),
               ),
             ),
-
-            // Delivery Info
+// Delivery Info
             SliverToBoxAdapter(
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 24),
@@ -972,6 +1035,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                 ),
               ),
             ),
+
 
             const SliverToBoxAdapter(child: SizedBox(height: 60)),
           ],

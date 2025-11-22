@@ -158,7 +158,57 @@ class ProductsApiService {
       return [];
     }
   }
+  Future<List<ProductModel>> getAllProductsForAdmin() async {
+    List<ProductModel> allProducts = [];
+    int currentPage = 1;
+    bool hasMorePages = true;
+    log('🔄 [Admin] Starting full product load...');
 
+    while (hasMorePages) {
+      try {
+        final queryParams = {'page': currentPage.toString()};
+        final url =
+        Uri.parse('${ApiConfig.currentBaseUrl}${ApiConfig.productsEndpoint}')
+            .replace(queryParameters: queryParams);
+
+        log('🌐 [Admin] GET $url (Page $currentPage)');
+        final response = await http.get(url, headers: _headers);
+
+        if (response.statusCode == 200) {
+          final data = jsonDecode(response.body);
+
+          // Check for 'products' key, fall back to data itself
+          final productsData = data['products'] ?? data;
+
+          if (productsData is List && productsData.isNotEmpty) {
+            // Convert list items to ProductModel
+            final pageProducts =
+            productsData.map((item) => ProductModel.fromApi(item)).toList();
+
+            allProducts.addAll(pageProducts);
+            log('✅ [Admin] Loaded ${pageProducts.length} products from page $currentPage. Total: ${allProducts.length}');
+
+            // Increment page for next loop
+            currentPage++;
+          } else {
+            // If list is empty, we've reached the end
+            log('🏁 [Admin] No more products found on page $currentPage. Stopping loop.');
+            hasMorePages = false;
+          }
+        } else {
+          // If API fails on a page, stop and return what we have
+          log('❌ [Admin] API Error on page $currentPage: ${response.statusCode} - ${response.body}');
+          hasMorePages = false;
+        }
+      } catch (e) {
+        log('❌ [Admin] Exception during pagination: $e');
+        hasMorePages = false; // Stop loop on error
+      }
+    }
+
+    log('✅ [Admin] Total products loaded: ${allProducts.length}');
+    return allProducts;
+  }
   // Get popular products (for "PopularProducts" widget)
   Future<List<ProductModel>> getPopularProducts() async {
     try {

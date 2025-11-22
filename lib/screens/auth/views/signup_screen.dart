@@ -2,8 +2,15 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:shop/models/user_session.dart';
 import 'package:shop/route/route_constants.dart';
+import 'package:shop/screens/auth/views/ConsultantSignupScreen.dart';
 import 'package:shop/services/auth_api_service.dart';
+
+// --- IMPORT REMOVED ---
+// We remove the agora_chat_sdk import because the app
+// should not create users. Only your backend server should.
+
 import '../../../constants.dart';
+import '../../Consultation/ConsultantDashboardScreen.dart';
 
 class SignUpScreen extends StatefulWidget {
   const SignUpScreen({super.key});
@@ -39,7 +46,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                   Icon(Icons.info_outline, color: Colors.white, size: 20),
                   SizedBox(width: 12),
                   Expanded(
-                    child: Text('Welcome! Please create your account to continue.'),
+                    child:
+                    Text('Welcome! Please create your account to continue.'),
                   ),
                 ],
               ),
@@ -100,6 +108,12 @@ class _SignUpScreenState extends State<SignUpScreen> {
               userData['data']?['user'] ??
               (userData['email'] != null ? userData : null);
 
+          // --- AGORA BLOCK REMOVED ---
+          // Your backend API (which _authApi.register calls)
+          // is now responsible for creating the Agora Chat user
+          // on the server.
+          // ---
+
           if (user != null && user['email'] != null) {
             await UserSession.setUserSession(
               user['email'],
@@ -115,7 +129,7 @@ class _SignUpScreenState extends State<SignUpScreen> {
 
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: const Text('Welcome to BAETOWN! 🎉'),
+              content: const Text('Welcome to RITUAL! 🎉'),
               backgroundColor: const Color(0xFF1A1A2E),
               behavior: SnackBarBehavior.floating,
               shape: RoundedRectangleBorder(
@@ -130,11 +144,13 @@ class _SignUpScreenState extends State<SignUpScreen> {
                 (route) => false,
           );
         } else {
-          String errorMessage = response.error ?? 'Registration failed. Please try again.';
+          String errorMessage =
+              response.error ?? 'Registration failed. Please try again.';
 
           if (errorMessage.toLowerCase().contains('already exists') ||
               errorMessage.toLowerCase().contains('duplicate')) {
-            errorMessage = 'This email is already registered. Please log in instead.';
+            errorMessage =
+            'This email is already registered. Please log in instead.';
           } else if (errorMessage.toLowerCase().contains('invalid email')) {
             errorMessage = 'Please enter a valid email address.';
           } else if (errorMessage.toLowerCase().contains('password')) {
@@ -196,7 +212,6 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       fit: BoxFit.cover,
                     ),
                   ),
-                  // Gradient overlay for better text readability
                   Container(
                     height: MediaQuery.of(context).size.height * 0.28,
                     width: double.infinity,
@@ -206,7 +221,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                         end: Alignment.bottomCenter,
                         colors: [
                           Colors.transparent,
-                          (isDark ? const Color(0xFF0F0F0F) : const Color(0xFFFAF9F6))
+                          (isDark
+                              ? const Color(0xFF0F0F0F)
+                              : const Color(0xFFFAF9F6))
                               .withOpacity(0.9),
                         ],
                         stops: const [0.5, 1.0],
@@ -284,7 +301,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                               floatingLabelBehavior: FloatingLabelBehavior.always,
                               filled: true,
-                              fillColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                              fillColor:
+                              isDark ? const Color(0xFF1A1A1A) : Colors.white,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 20,
                                 vertical: 20,
@@ -304,7 +322,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(4),
                                 borderSide: BorderSide(
-                                  color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                                  color: isDark
+                                      ? Colors.white
+                                      : const Color(0xFF1A1A2E),
                                   width: 1.5,
                                 ),
                               ),
@@ -341,7 +361,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                               floatingLabelBehavior: FloatingLabelBehavior.always,
                               filled: true,
-                              fillColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                              fillColor:
+                              isDark ? const Color(0xFF1A1A1A) : Colors.white,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 20,
                                 vertical: 20,
@@ -361,7 +382,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(4),
                                 borderSide: BorderSide(
-                                  color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                                  color: isDark
+                                      ? Colors.white
+                                      : const Color(0xFF1A1A2E),
                                   width: 1.5,
                                 ),
                               ),
@@ -398,7 +421,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               ),
                               floatingLabelBehavior: FloatingLabelBehavior.always,
                               filled: true,
-                              fillColor: isDark ? const Color(0xFF1A1A1A) : Colors.white,
+                              fillColor:
+                              isDark ? const Color(0xFF1A1A1A) : Colors.white,
                               contentPadding: const EdgeInsets.symmetric(
                                 horizontal: 20,
                                 vertical: 20,
@@ -412,7 +436,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                   size: 20,
                                 ),
                                 onPressed: () {
-                                  setState(() => _isPasswordVisible = !_isPasswordVisible);
+                                  setState(() =>
+                                  _isPasswordVisible = !_isPasswordVisible);
                                 },
                               ),
                               border: OutlineInputBorder(
@@ -430,7 +455,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               focusedBorder: OutlineInputBorder(
                                 borderRadius: BorderRadius.circular(4),
                                 borderSide: BorderSide(
-                                  color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                                  color: isDark
+                                      ? Colors.white
+                                      : const Color(0xFF1A1A2E),
                                   width: 1.5,
                                 ),
                               ),
@@ -491,7 +518,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     TextSpan(
                                       text: "Terms of Service",
                                       style: TextStyle(
-                                        color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                                        color: isDark
+                                            ? Colors.white
+                                            : const Color(0xFF1A1A2E),
                                         fontWeight: FontWeight.w600,
                                         decoration: TextDecoration.underline,
                                       ),
@@ -507,13 +536,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                                     TextSpan(
                                       text: "Privacy Policy",
                                       style: TextStyle(
-                                        color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                                        color: isDark
+                                            ? Colors.white
+                                            : const Color(0xFF1A1A2E),
                                         fontWeight: FontWeight.w600,
                                         decoration: TextDecoration.underline,
                                       ),
                                       recognizer: TapGestureRecognizer()
                                         ..onTap = () {
-                                          // Navigate to privacy policy if you have a route
                                           Navigator.pushNamed(
                                             context,
                                             termsOfServicesScreenRoute,
@@ -536,10 +566,14 @@ class _SignUpScreenState extends State<SignUpScreen> {
                       width: double.infinity,
                       height: 56,
                       child: ElevatedButton(
-                        onPressed: (_isTermsAccepted && !_isLoading) ? _handleSignUp : null,
+                        onPressed: (_isTermsAccepted && !_isLoading)
+                            ? _handleSignUp
+                            : null,
                         style: ElevatedButton.styleFrom(
-                          backgroundColor: isDark ? Colors.white : const Color(0xFF1A1A2E),
-                          foregroundColor: isDark ? const Color(0xFF1A1A2E) : Colors.white,
+                          backgroundColor:
+                          isDark ? Colors.white : const Color(0xFF1A1A2E),
+                          foregroundColor:
+                          isDark ? const Color(0xFF1A1A2E) : Colors.white,
                           disabledBackgroundColor: isDark
                               ? Colors.white.withOpacity(0.3)
                               : Colors.black26,
@@ -555,7 +589,9 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           child: CircularProgressIndicator(
                             strokeWidth: 2,
                             valueColor: AlwaysStoppedAnimation<Color>(
-                              isDark ? const Color(0xFF1A1A2E) : Colors.white,
+                              isDark
+                                  ? const Color(0xFF1A1A2E)
+                                  : Colors.white,
                             ),
                           ),
                         )
@@ -587,7 +623,8 @@ class _SignUpScreenState extends State<SignUpScreen> {
                           ),
                           TextButton(
                             onPressed: () {
-                              Navigator.pushReplacementNamed(context, logInScreenRoute);
+                              Navigator.pushReplacementNamed(
+                                  context, logInScreenRoute);
                             },
                             style: TextButton.styleFrom(
                               padding: const EdgeInsets.only(left: 4),
@@ -599,13 +636,84 @@ class _SignUpScreenState extends State<SignUpScreen> {
                               style: TextStyle(
                                 fontSize: 14,
                                 fontWeight: FontWeight.w600,
-                                color: isDark ? Colors.white : const Color(0xFF1A1A2E),
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF1A1A2E),
                                 letterSpacing: 0.3,
                                 decoration: TextDecoration.underline,
                               ),
                             ),
                           ),
                         ],
+                      ),
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    // Divider
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Divider(
+                            color: isDark ? Colors.white12 : Colors.black12,
+                            thickness: 1,
+                          ),
+                        ),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 16),
+                          child: Text(
+                            'OR',
+                            style: TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                              color: isDark ? Colors.white38 : Colors.black38,
+                              letterSpacing: 1.5,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Divider(
+                            color: isDark ? Colors.white12 : Colors.black12,
+                            thickness: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 24),
+
+                    SizedBox(
+                      width: double.infinity,
+                      height: 56,
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (builder) =>
+                                const ConsultantSignupScreen()),
+                          );
+                        },
+                        icon:
+                        const Icon(Icons.medical_services_outlined, size: 20),
+                        label: const Text(
+                          'REGISTER AS CONSULTANT',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            letterSpacing: 2,
+                          ),
+                        ),
+                        style: OutlinedButton.styleFrom(
+                          foregroundColor: const Color(0xFF020953),
+                          side: const BorderSide(
+                            color: Color(0xFF020953),
+                            width: 1.5,
+                          ),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
                       ),
                     ),
 

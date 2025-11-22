@@ -19,16 +19,14 @@ class MostPopular extends StatefulWidget {
 class _MostPopularState extends State<MostPopular> {
   final ProductsApiService _apiService = ProductsApiService();
 
-  // 3. ADDED: State variables to match PopularProducts.dart
   List<ProductModel> _mostPopularProducts = [];
   bool _isLoading = true;
   bool _hasError = false;
-  final titleStyle = TextStyle(
-      color: Color(0xFF06055c), fontWeight: FontWeight.bold, fontSize: 16);
+  final titleStyle = const TextStyle(
+      color: Color(0xFF06055c), fontWeight: FontWeight.bold, fontSize: 18);
   List<ProductModel> _firstRowProducts = [];
   List<ProductModel> _secondRowProducts = [];
 
-  // 4. ADDED: Height getters from PopularProducts.dart
   double get listHeight {
     final screenWidth = MediaQuery.of(context).size.width;
     return screenWidth < 600 ? 220.0 : 240.0;
@@ -50,7 +48,6 @@ class _MostPopularState extends State<MostPopular> {
     _fetchMostPopularProducts();
   }
 
-  // 5. REPLACED: Fetch logic now matches PopularProducts.dart
   Future<void> _fetchMostPopularProducts() async {
     try {
       setState(() {
@@ -59,9 +56,9 @@ class _MostPopularState extends State<MostPopular> {
       });
 
       final allProducts = await _apiService.getAllProducts();
-      final popularProducts = allProducts.where((product) => product.isPopular == true).toList();
+      final popularProducts =
+      allProducts.where((product) => product.isPopular == true).toList();
 
-      // Fetches 12 products and splits them
       if (popularProducts.isEmpty && allProducts.isNotEmpty) {
         _mostPopularProducts = allProducts.take(12).toList();
       } else {
@@ -79,12 +76,10 @@ class _MostPopularState extends State<MostPopular> {
         _secondRowProducts = [];
       }
 
-
       setState(() {
         _isLoading = false;
       });
     } catch (e) {
-      print('Error fetching most popular products: $e');
       setState(() {
         _isLoading = false;
         _hasError = true;
@@ -94,12 +89,10 @@ class _MostPopularState extends State<MostPopular> {
 
   @override
   Widget build(BuildContext context) {
-    // 6. ADDED: screenWidth calculation
     final screenWidth = MediaQuery.of(context).size.width;
 
     return Container(
-      // 7. CHANGED: Background color to match
-      color: const Color(0xFFFAFAFA), // Light background
+      color: const Color(0xFFFAFAFA),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -109,25 +102,20 @@ class _MostPopularState extends State<MostPopular> {
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                // 8. CHANGED: Title to match
-                Text(
-                    "Most Popular Products",
-                    style: titleStyle
-                ),
+                Text("Most Popular Products", style: titleStyle),
                 TextButton(
-                  // 9. CHANGED: Navigation to match
                   onPressed: () {
                     Navigator.pushReplacement(
                       context,
-                      MaterialPageRoute(builder: (builder) => MostPopularScreen()),
+                      MaterialPageRoute(builder: (builder) => const MostPopularScreen()),
                     );
                   },
-                  child: Text(
+                  child: const Text(
                     "SEE ALL",
                     style: TextStyle(
-                      color: const Color(0xFF020953),
+                      color: Color(0xFF020953),
                       fontWeight: FontWeight.w600,
-                      fontSize: 12,
+                      fontSize: 13,
                       letterSpacing: 0.8,
                     ),
                   ),
@@ -136,7 +124,6 @@ class _MostPopularState extends State<MostPopular> {
             ),
           ),
           const SizedBox(height: defaultPadding / 2),
-          // 10. CHANGED: Height and child widget to match
           SizedBox(
             height: totalHeight,
             child: _buildContent(screenWidth),
@@ -147,10 +134,10 @@ class _MostPopularState extends State<MostPopular> {
     );
   }
 
-  // 11. REPLACED: _buildProductList with _buildContent from PopularProducts.dart
   Widget _buildContent(double screenWidth) {
     if (_isLoading) {
-      return const Center(child: CircularProgressIndicator(color: Color(0xFF020953)));
+      return const Center(
+          child: CircularProgressIndicator(color: Color(0xFF020953)));
     }
 
     if (_hasError) {
@@ -159,12 +146,13 @@ class _MostPopularState extends State<MostPopular> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Icon(Icons.error_outline, size: 48, color: Colors.grey),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             Text(
               "Failed to load products",
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
+              style:
+              Theme.of(context).textTheme.bodyMedium?.copyWith(color: Colors.grey),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 10),
             ElevatedButton(
               onPressed: _fetchMostPopularProducts,
               style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF020953)),
@@ -184,7 +172,6 @@ class _MostPopularState extends State<MostPopular> {
       );
     }
 
-    // This now builds the two rows
     return Column(
       children: [
         // First Row
@@ -196,11 +183,11 @@ class _MostPopularState extends State<MostPopular> {
             itemBuilder: (context, index) => Padding(
               padding: EdgeInsets.only(
                 left: defaultPadding,
-                right: index == _firstRowProducts.length - 1 ? defaultPadding : 0,
+                right:
+                index == _firstRowProducts.length - 1 ? defaultPadding : 0,
               ),
               child: SizedBox(
                 width: screenWidth < 600 ? 140 : 160,
-                // 12. CHANGED: Using ProductCard
                 child: ProductCard(
                   image: _firstRowProducts[index].image,
                   brandName: _firstRowProducts[index].brandName ?? "BAETOWN",
@@ -232,14 +219,15 @@ class _MostPopularState extends State<MostPopular> {
               itemBuilder: (context, index) => Padding(
                 padding: EdgeInsets.only(
                   left: defaultPadding,
-                  right: index == _secondRowProducts.length - 1 ? defaultPadding : 0,
+                  right:
+                  index == _secondRowProducts.length - 1 ? defaultPadding : 0,
                 ),
                 child: SizedBox(
                   width: screenWidth < 600 ? 140 : 160,
-                  // 13. CHANGED: Using ProductCard
                   child: ProductCard(
                     image: _secondRowProducts[index].image,
-                    brandName: _secondRowProducts[index].brandName ?? "BAETOWN",
+                    brandName:
+                    _secondRowProducts[index].brandName ?? "BAETOWN",
                     title: _secondRowProducts[index].title,
                     price: _secondRowProducts[index].price,
                     priceAfetDiscount: _secondRowProducts[index].priceAfetDiscount,

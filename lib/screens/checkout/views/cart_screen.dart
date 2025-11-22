@@ -25,11 +25,11 @@ class _CartScreenState extends State<CartScreen> {
     _ordersApi = Provider.of<OrdersApiService>(context, listen: false);
     final cartApi = Provider.of<CartApiService>(context, listen: false);
 
-    PaymentService.initialize(
-      context: context,
-      ordersApi: _ordersApi,
-      cartApi: cartApi,
-    );
+    // PaymentService.initialize(
+    //   context: context,
+    //   ordersApi: _ordersApi,
+    //   cartApi: cartApi,
+    // );
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Provider.of<CartService>(context, listen: false).fetchCart();
@@ -38,7 +38,7 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   void dispose() {
-    PaymentService.dispose();
+  //  PaymentService.dispose();
     super.dispose();
   }
 
@@ -106,16 +106,16 @@ class _CartScreenState extends State<CartScreen> {
       final double serverAmount = (orderData['amount'] as num).toDouble() / 100.0;
       Navigator.of(context).pop();
 
-      PaymentService.startPayment(
-        key: razorpayKey,
-        amount: serverAmount,
-        orderId: razorpayOrderId,
-        cartItems: cartService.items,
-        shippingInfo: shippingInfo,
-        customerName: 'Customer',
-        customerEmail: 'customer@example.com',
-        customerContact: '9999999999',
-      );
+      // PaymentService.startPayment(
+      //   key: razorpayKey,
+      //   amount: serverAmount,
+      //   orderId: razorpayOrderId,
+      //   cartItems: cartService.items,
+      //   shippingInfo: shippingInfo,
+      //   customerName: 'Customer',
+      //   customerEmail: 'customer@example.com',
+      //   customerContact: '9999999999',
+
     } catch (e) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -283,7 +283,7 @@ class _CartScreenState extends State<CartScreen> {
                   itemCount: cartItems.length,
                   itemBuilder: (context, index) {
                     final cartItem = cartItems[index];
-
+                    final String? productId = cartItem.product.productId;
                     return Container(
                       margin: const EdgeInsets.only(bottom: 16),
                       padding: const EdgeInsets.all(16),
@@ -382,19 +382,17 @@ class _CartScreenState extends State<CartScreen> {
                                       child: Row(
                                         mainAxisSize: MainAxisSize.min,
                                         children: [
-                                          // Decrement
+                                          // --- 2. FIX DECREMENT BUTTON ---
                                           IconButton(
-                                            onPressed: () async {
-                                              if (cartItem.quantity > 1) {
-                                                String? cartItemId = cartItem.cartItemId;
-                                                String? productId = cartItem.product.productId;
-                                                if (cartItemId != null && productId != null) {
-                                                  await cartService.updateQuantity(
-                                                    cartItemId: cartItemId,
-                                                    productId: productId,
-                                                    newQuantity: cartItem.quantity - 1,
-                                                  );
-                                                }
+                                            // Disable if loading or quantity is 1
+                                            onPressed: (isLoading || cartItem.quantity <= 1)
+                                                ? null
+                                                : () async {
+                                              if (productId != null) {
+                                                await cartService.updateQuantity(
+                                                  productId: productId,
+                                                  newQuantity: cartItem.quantity - 1,
+                                                );
                                               }
                                             },
                                             icon: const Icon(Icons.remove, size: 20),
@@ -414,20 +412,17 @@ class _CartScreenState extends State<CartScreen> {
                                               ),
                                             ),
                                           ),
-                                          // Increment
+                                          // --- 3. FIX INCREMENT BUTTON ---
                                           IconButton(
-                                            onPressed: () async {
-                                              final maxAllowed = cartItem.product.getMaxAllowedQuantity();
-                                              if (cartItem.quantity < maxAllowed) {
-                                                String? cartItemId = cartItem.cartItemId;
-                                                String? productId = cartItem.product.productId;
-                                                if (cartItemId != null && productId != null) {
-                                                  await cartService.updateQuantity(
-                                                    cartItemId: cartItemId,
-                                                    productId: productId,
-                                                    newQuantity: cartItem.quantity + 1,
-                                                  );
-                                                }
+                                            // Disable if loading or at max quantity
+                                            onPressed: (isLoading || cartItem.quantity >= cartItem.product.getMaxAllowedQuantity())
+                                                ? null
+                                                : () async {
+                                              if (productId != null) {
+                                                await cartService.updateQuantity(
+                                                  productId: productId,
+                                                  newQuantity: cartItem.quantity + 1,
+                                                );
                                               }
                                             },
                                             icon: const Icon(Icons.add, size: 20),
@@ -436,14 +431,14 @@ class _CartScreenState extends State<CartScreen> {
                                               minHeight: 32,
                                             ),
                                           ),
-                                          // Remove
+                                          // --- 4. FIX REMOVE BUTTON ---
                                           IconButton(
-                                            onPressed: () async {
-                                              String? cartItemId = cartItem.cartItemId;
-                                              String? productId = cartItem.product.productId;
-                                              if (cartItemId != null && productId != null) {
+                                            // Disable if loading
+                                            onPressed: isLoading
+                                                ? null
+                                                : () async {
+                                              if (productId != null) {
                                                 await cartService.removeFromCart(
-                                                  cartItemId: cartItemId,
                                                   productId: productId,
                                                 );
                                               }

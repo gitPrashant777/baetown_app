@@ -31,12 +31,12 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
   final _discountPriceController = TextEditingController();
   final _stockController = TextEditingController();
   final _maxOrderController = TextEditingController();
-  
+
   List<String> _selectedImages = [];
   List<File> _newImageFiles = [];
   bool _isOutOfStock = false;
   bool _isLoading = false;
-  
+
   // Category selection
   String _selectedCategory = 'Electronics';
   final List<String> _categories = [
@@ -52,14 +52,14 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
     'Food & Beverages',
     'Other',
   ];
-  
+
   // New product flags
   bool _isOnSale = false;
   bool _isPopular = false;
   bool _isBestSeller = false;
   bool _isFlashSale = false;
   DateTime? _flashSaleEnd;
-  
+
   final ImagePicker _picker = ImagePicker();
 
   @override
@@ -70,6 +70,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
     } else {
       // Set default values for new product
       _maxOrderController.text = '5';
+      _stockController.text = '10';
     }
   }
 
@@ -85,7 +86,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
     _maxOrderController.text = product.maxOrderQuantity.toString();
     _selectedImages = List.from(product.images);
     _isOutOfStock = product.isOutOfStock;
-    
+
     // Load new fields if they exist in the product model
     _isOnSale = product.isOnSale ?? false;
     _isPopular = product.isPopular ?? false;
@@ -101,7 +102,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
         maxWidth: 1000,
         maxHeight: 1000,
       );
-      
+
       if (images.isNotEmpty) {
         setState(() {
           for (var image in images) {
@@ -125,7 +126,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
         maxWidth: 1000,
         maxHeight: 1000,
       );
-      
+
       if (image != null) {
         setState(() {
           _newImageFiles.add(File(image.path));
@@ -144,7 +145,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
       if (index < _selectedImages.length) {
         String imagePath = _selectedImages[index];
         _selectedImages.removeAt(index);
-        
+
         // Also remove from new files if it's a new file
         _newImageFiles.removeWhere((file) => file.path == imagePath);
       }
@@ -153,25 +154,25 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
 
   Future<List<String>> _uploadImagesToCloudinary() async {
     List<String> uploadedUrls = [];
-    
+
     if (_newImageFiles.isEmpty) {
       print('📷 No new images to upload');
       return uploadedUrls;
     }
-    
+
     try {
       print('☁️ Starting Cloudinary upload for ${_newImageFiles.length} images...');
-      
+
       // Show upload progress
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Uploading ${_newImageFiles.length} images to Cloudinary...'),
-            duration: Duration(seconds: 2),
+            duration: const Duration(seconds: 2),
           ),
         );
       }
-      
+
       // Upload images to Cloudinary
       final uploadResults = await CloudinaryService.uploadMultipleImages(
         _newImageFiles,
@@ -181,15 +182,15 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
           print('📤 Upload progress: $completed/$total');
         },
       );
-      
+
       // Extract URLs from successful uploads
       for (var result in uploadResults) {
         uploadedUrls.add(result.secureUrl);
         print('✅ Uploaded: ${result.secureUrl}');
       }
-      
+
       print('🎉 Successfully uploaded ${uploadedUrls.length} images to Cloudinary');
-      
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -198,7 +199,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
           ),
         );
       }
-      
+
     } catch (e) {
       print('❌ Error uploading images to Cloudinary: $e');
       if (mounted) {
@@ -209,61 +210,58 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
           ),
         );
       }
-      // Don't throw the error, continue with product creation without images
     }
-    
+
     return uploadedUrls;
   }
 
   Future<void> _saveProduct() async {
     if (_formKey.currentState!.validate()) {
       setState(() => _isLoading = true);
-      
-      // Debug: Check if we're updating or creating
-      if (widget.product == null) {
-        print('🆕 Creating new product');
-      } else {
-        print('✏️ Updating existing product');
-        print('  • Product ID: ${widget.product!.productId}');
-        print('  • Current title: ${widget.product!.title}');
-      }
-      
+
       try {
         // 1. First upload images to Cloudinary
         print('🚀 Step 1: Uploading images to Cloudinary...');
         final cloudinaryUrls = await _uploadImagesToCloudinary();
-        
+
         // 2. Combine existing images with newly uploaded ones
         List<String> allImageUrls = [];
-        
+
         // Add existing images (URLs that start with http)
         for (String imagePath in _selectedImages) {
           if (imagePath.startsWith('http')) {
             allImageUrls.add(imagePath);
           }
         }
-        
+
         // Add newly uploaded Cloudinary URLs
         allImageUrls.addAll(cloudinaryUrls);
-        
+
         // If no images, add a placeholder
         if (allImageUrls.isEmpty) {
           allImageUrls.add('https://via.placeholder.com/400x400/CCCCCC/FFFFFF?text=No+Image');
         }
-        
-        print('📷 Total images for product: ${allImageUrls.length}');
-        allImageUrls.forEach((url) => print('  - $url'));
-        
+
+        // --- FIX: Convert Image URLs to Objects for Backend Schema ---
+        // Most MERN backends fail with 500 if 'images' is just an array of strings.
+        // We map them to { public_id, url } objects.
+        final formattedImages = allImageUrls.map((url) => {
+          'public_id': 'manual_${DateTime.now().millisecondsSinceEpoch}',
+          'url': url
+        }).toList();
+
+        print('📷 Formatted images for backend: $formattedImages');
+
         // 3. Get authentication token
         print('🔐 Step 2: Getting authentication token...');
         final directToken = SimpleTokenManager.getDirectToken();
         final isDirectAdmin = SimpleTokenManager.isDirectAdmin();
-        
+
         if (directToken == null || !isDirectAdmin) {
           throw Exception('Admin authentication required. Please log in again.');
         }
 
-        // 4. Create product data with Cloudinary image URLs
+        // 4. Create product data
         print('📦 Step 3: Creating product data...');
         Map<String, dynamic> productData = {
           'name': _titleController.text.trim(),
@@ -273,9 +271,9 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
           'price': double.parse(_priceController.text),
           'stock': int.parse(_stockController.text),
           'maxOrderQuantity': int.parse(_maxOrderController.text),
-          'images': allImageUrls, // Use Cloudinary URLs
+          'images': formattedImages, // Using the Object structure
           'isOutOfStock': _isOutOfStock,
-          
+
           // New product flags
           'isOnSale': _isOnSale,
           'isPopular': _isPopular,
@@ -285,44 +283,19 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
 
         // Add flash sale end date if flash sale is enabled
         if (_isFlashSale && _flashSaleEnd != null) {
-          print('📅 Flash sale end date before conversion: $_flashSaleEnd');
-          print('📅 Flash sale end date type: ${_flashSaleEnd.runtimeType}');
-          
-          // Validate that _flashSaleEnd is actually a DateTime
           if (_flashSaleEnd is DateTime) {
             final flashSaleEndString = _flashSaleEnd!.toIso8601String();
-            print('📅 Flash sale end date ISO string: $flashSaleEndString');
             productData['flashSaleEnd'] = flashSaleEndString;
           } else {
-            print('❌ Error: _flashSaleEnd is not a DateTime: ${_flashSaleEnd.runtimeType}');
-            print('❌ Invalid value: $_flashSaleEnd');
-            // Reset the invalid value
             setState(() {
               _flashSaleEnd = null;
             });
             throw Exception('Invalid flash sale end date. Please select a valid date and time.');
           }
-        } else if (_isFlashSale) {
-          print('⚠️ Flash sale is enabled but no end date is set');
         }
 
-        print('📦 Final product data: $productData');
-        
-        // Debug: Show individual fields
-        print('📋 Product Fields Summary:');
-        print('  • name: ${productData['name']}');
-        print('  • description: ${productData['description']}');
-        print('  • brand: ${productData['brand']}');
-        print('  • category: ${productData['category']}');
-        print('  • price: ${productData['price']}');
-        print('  • stock: ${productData['stock']}');
-        print('  • maxOrderQuantity: ${productData['maxOrderQuantity']}');
-        print('  • images count: ${productData['images']?.length ?? 0}');
-        print('  • flags: {isOnSale: ${productData['isOnSale']}, isPopular: ${productData['isPopular']}, isBestSeller: ${productData['isBestSeller']}, isFlashSale: ${productData['isFlashSale']}}');
-        
-        // Add optional fields for CREATE only (not for UPDATE to avoid backend issues)
+        // Add optional fields for CREATE only
         if (widget.product == null) {
-          // Only add these fields when creating new products
           if (_discountPriceController.text.isNotEmpty) {
             double discountPrice = double.parse(_discountPriceController.text);
             double originalPrice = double.parse(_priceController.text);
@@ -331,12 +304,26 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
               productData['discount'] = ((originalPrice - discountPrice) / originalPrice * 100).round();
             }
           } else {
-            productData['salePrice'] = double.parse(_priceController.text) * 0.9; // 10% discount
+            productData['salePrice'] = double.parse(_priceController.text) * 0.9;
             productData['discount'] = 10;
           }
         } else {
-          // For updates, create a cleaner payload with only allowed fields
-          print('🧹 Creating clean update payload...');
+          // Update Logic: Only send relevant fields
+          if (_discountPriceController.text.isNotEmpty) {
+            double discountPrice = double.parse(_discountPriceController.text);
+            productData['salePrice'] = discountPrice;
+          }
+        }
+
+        print('🎯 Step 4: ${widget.product == null ? 'Creating' : 'Updating'} product...');
+
+        Map<String, dynamic> result;
+        if (widget.product == null) {
+          // Creating new product
+          result = await _createProductDirectAPI(productData, directToken);
+        } else {
+          // Updating existing product
+          // Ensure we only send necessary fields for update to prevent backend validation errors
           Map<String, dynamic> updateData = {
             'name': productData['name'],
             'description': productData['description'],
@@ -347,54 +334,32 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
             'maxOrderQuantity': productData['maxOrderQuantity'],
             'images': productData['images'],
             'isOutOfStock': productData['isOutOfStock'],
-            // Only include flags if present
-            if (productData.containsKey('isOnSale')) 'isOnSale': productData['isOnSale'],
-            if (productData.containsKey('isPopular')) 'isPopular': productData['isPopular'],
-            if (productData.containsKey('isBestSeller')) 'isBestSeller': productData['isBestSeller'],
-            if (productData.containsKey('isFlashSale')) 'isFlashSale': productData['isFlashSale'],
-            if (productData.containsKey('flashSaleEnd')) 'flashSaleEnd': productData['flashSaleEnd'],
+            'isOnSale': productData['isOnSale'],
+            'isPopular': productData['isPopular'],
+            'isBestSeller': productData['isBestSeller'],
+            'isFlashSale': productData['isFlashSale'],
           };
-          // Only add salePrice if present
-          if (_discountPriceController.text.isNotEmpty) {
-            double discountPrice = double.parse(_discountPriceController.text);
-            updateData['salePrice'] = discountPrice;
-          }
-          productData = updateData;
-          print('🧹 Clean update payload: $productData');
-        }
 
-        print('🎯 Step 4: ${widget.product == null ? 'Creating' : 'Updating'} product with ${allImageUrls.length} images...');
-        
-        Map<String, dynamic> result;
-        if (widget.product == null) {
-          // Creating new product
-          result = await _createProductDirectAPI(productData, directToken);
-        } else {
-          // Updating existing product
-          print('📝 Updating existing product with ID: ${widget.product!.productId}');
-          // Only send allowed fields for update
-          Map<String, dynamic> updateData = {
-            'name': productData['name'],
-            'description': productData['description'],
-            'brand': productData['brand'],
-            'category': productData['category'],
-            'price': productData['price'],
-            'stock': productData['stock'],
-          };
-          print('🧾 Update API payload: ' + jsonEncode(updateData));
+          if (productData.containsKey('flashSaleEnd')) {
+            updateData['flashSaleEnd'] = productData['flashSaleEnd'];
+          }
+          if (productData.containsKey('salePrice')) {
+            updateData['salePrice'] = productData['salePrice'];
+          }
+
           result = await _updateProductDirectAPI(widget.product!.productId!, updateData, directToken);
         }
-        
+
         if (!result['success']) {
           throw Exception(result['message'] ?? 'Failed to ${widget.product == null ? 'create' : 'update'} product');
         }
-        
-        print('✅ Product ${widget.product == null ? 'created' : 'updated'} successfully with Cloudinary images!');
-        
+
+        print('✅ Product ${widget.product == null ? 'created' : 'updated'} successfully!');
+
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Product ${widget.product == null ? 'created' : 'updated'} successfully with ${allImageUrls.length} images!'),
+              content: Text('Product ${widget.product == null ? 'created' : 'updated'} successfully!'),
               backgroundColor: successColor,
             ),
           );
@@ -405,11 +370,11 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
         setState(() => _isLoading = false);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Error ${widget.product == null ? 'creating' : 'updating'} product: $e')),
+            SnackBar(content: Text('Error: $e')),
           );
         }
       } finally {
-        setState(() => _isLoading = false);
+        if (mounted) setState(() => _isLoading = false);
       }
     }
   }
@@ -417,21 +382,20 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
   Future<Map<String, dynamic>> _createProductDirectAPI(Map<String, dynamic> productData, String token) async {
     try {
       final dio = Dio();
-      
+
       final headers = {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json; charset=utf-8',
         'Accept': '*/*',
       };
-      
-      print('🌐 Creating product with data: ${jsonEncode(productData)}');
-      
+
       final response = await dio.post(
         'https://mern-backend-t3h8.onrender.com/api/v1/admin/product',
         data: productData,
         options: Options(
           headers: headers,
           responseType: ResponseType.json,
+          validateStatus: (status) => true, // Allow all status codes to be handled manually
         ),
       );
 
@@ -444,7 +408,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
       } else {
         return {
           'success': false,
-          'message': 'Failed to create product: ${response.statusMessage}'
+          'message': 'Server Error (${response.statusCode}): ${response.data is Map ? response.data['message'] ?? response.statusMessage : response.data}'
         };
       }
     } catch (e) {
@@ -459,21 +423,20 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
   Future<Map<String, dynamic>> _updateProductDirectAPI(String productId, Map<String, dynamic> productData, String token) async {
     try {
       final dio = Dio();
-      
+
       final headers = {
         'Authorization': 'Bearer $token',
         'Content-Type': 'application/json; charset=utf-8',
         'Accept': '*/*',
       };
-      
-      print('🌐 Updating product $productId with data: ${jsonEncode(productData)}');
-      
+
       final response = await dio.put(
         'https://mern-backend-t3h8.onrender.com/api/v1/admin/product/$productId',
         data: productData,
         options: Options(
           headers: headers,
           responseType: ResponseType.json,
+          validateStatus: (status) => true,
         ),
       );
 
@@ -486,7 +449,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
       } else {
         return {
           'success': false,
-          'message': 'Failed to update product: ${response.statusMessage}'
+          'message': 'Server Error (${response.statusCode}): ${response.data is Map ? response.data['message'] ?? response.statusMessage : response.data}'
         };
       }
     } catch (e) {
@@ -549,29 +512,29 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
             children: [
               // Images Section
               _buildImageSection(),
-              
+
               const SizedBox(height: defaultPadding * 2),
-              
+
               // Product Information
               _buildProductInfoSection(),
-              
+
               const SizedBox(height: defaultPadding * 2),
-              
+
               // Pricing Section
               _buildPricingSection(),
-              
+
               const SizedBox(height: defaultPadding * 2),
-              
+
               // Inventory Section
               _buildInventorySection(),
-              
+
               const SizedBox(height: defaultPadding * 2),
-              
+
               // Product Flags Section
               _buildProductFlagsSection(),
-              
+
               const SizedBox(height: defaultPadding * 3),
-              
+
               // Save Button
               SizedBox(
                 width: double.infinity,
@@ -585,22 +548,22 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
                       borderRadius: BorderRadius.circular(12),
                     ),
                   ),
-                  child: _isLoading 
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(
-                          color: Colors.white,
-                          strokeWidth: 2,
-                        ),
-                      )
-                    : Text(
-                        widget.product == null ? 'Create Product' : 'Update Product',
-                        style: const TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
+                  child: _isLoading
+                      ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : Text(
+                    widget.product == null ? 'Create Product' : 'Update Product',
+                    style: const TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -627,7 +590,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
           ],
         ),
         const SizedBox(height: defaultPadding),
-        
+
         // Image Grid
         if (_selectedImages.isNotEmpty)
           GridView.builder(
@@ -652,33 +615,33 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
                       borderRadius: BorderRadius.circular(8),
                       child: _selectedImages[index].startsWith('http')
                           ? Image.network(
-                              _selectedImages[index],
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: double.infinity,
-                              loadingBuilder: (context, child, loadingProgress) {
-                                if (loadingProgress == null) return child;
-                                return Center(
-                                  child: CircularProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress.cumulativeBytesLoaded /
-                                            loadingProgress.expectedTotalBytes!
-                                        : null,
-                                  ),
-                                );
-                              },
-                              errorBuilder: (context, error, stackTrace) {
-                                return const Center(
-                                  child: Icon(Icons.error, color: Colors.red),
-                                );
-                              },
-                            )
-                          : Image.file(
-                              File(_selectedImages[index]),
-                              fit: BoxFit.cover,
-                              width: double.infinity,
-                              height: double.infinity,
+                        _selectedImages[index],
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                                  : null,
                             ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Icon(Icons.error, color: Colors.red),
+                          );
+                        },
+                      )
+                          : Image.file(
+                        File(_selectedImages[index]),
+                        fit: BoxFit.cover,
+                        width: double.infinity,
+                        height: double.infinity,
+                      ),
                     ),
                   ),
                   // Remove button
@@ -726,9 +689,9 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
               );
             },
           ),
-        
+
         const SizedBox(height: defaultPadding),
-        
+
         // Add Images Buttons
         Row(
           children: [
@@ -778,7 +741,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
           ],
         ),
         const SizedBox(height: defaultPadding),
-        
+
         TextFormField(
           controller: _titleController,
           decoration: const InputDecoration(
@@ -793,9 +756,9 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
             return null;
           },
         ),
-        
+
         const SizedBox(height: defaultPadding),
-        
+
         TextFormField(
           controller: _brandController,
           decoration: const InputDecoration(
@@ -810,9 +773,9 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
             return null;
           },
         ),
-        
+
         const SizedBox(height: defaultPadding),
-        
+
         TextFormField(
           controller: _descriptionController,
           decoration: const InputDecoration(
@@ -829,9 +792,9 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
             return null;
           },
         ),
-        
+
         const SizedBox(height: defaultPadding),
-        
+
         DropdownButtonFormField<String>(
           value: _selectedCategory,
           decoration: const InputDecoration(
@@ -880,7 +843,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
           ],
         ),
         const SizedBox(height: defaultPadding),
-        
+
         Row(
           children: [
             Expanded(
@@ -951,7 +914,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
           ],
         ),
         const SizedBox(height: defaultPadding),
-        
+
         Row(
           children: [
             Expanded(
@@ -997,9 +960,9 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
             ),
           ],
         ),
-        
+
         const SizedBox(height: defaultPadding),
-        
+
         SwitchListTile(
           title: const Text('Out of Stock'),
           subtitle: const Text('Mark this product as out of stock'),
@@ -1032,7 +995,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
           ],
         ),
         const SizedBox(height: defaultPadding),
-        
+
         // On Sale Flag
         SwitchListTile(
           title: const Text('On Sale'),
@@ -1045,7 +1008,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
           },
           activeColor: primaryColor,
         ),
-        
+
         // Popular Flag
         SwitchListTile(
           title: const Text('Popular'),
@@ -1058,7 +1021,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
           },
           activeColor: primaryColor,
         ),
-        
+
         // Best Seller Flag
         SwitchListTile(
           title: const Text('Best Seller'),
@@ -1071,7 +1034,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
           },
           activeColor: primaryColor,
         ),
-        
+
         // Flash Sale Flag
         SwitchListTile(
           title: const Text('Flash Sale'),
@@ -1087,7 +1050,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
           },
           activeColor: primaryColor,
         ),
-        
+
         // Flash Sale End Date (only show when flash sale is enabled)
         if (_isFlashSale) ...[
           const SizedBox(height: defaultPadding),
@@ -1101,14 +1064,14 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
                   firstDate: DateTime.now(),
                   lastDate: DateTime.now().add(const Duration(days: 365)),
                 );
-                
+
                 if (pickedDate != null) {
                   print('📅 Date selected: $pickedDate');
                   final TimeOfDay? pickedTime = await showTimePicker(
                     context: context,
                     initialTime: TimeOfDay.fromDateTime(_flashSaleEnd ?? DateTime.now()),
                   );
-                  
+
                   if (pickedTime != null) {
                     print('⏰ Time selected: $pickedTime');
                     final newDateTime = DateTime(
@@ -1156,8 +1119,8 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
                       ),
                       Text(
                         _flashSaleEnd != null && _flashSaleEnd is DateTime
-                          ? '${_flashSaleEnd!.day}/${_flashSaleEnd!.month}/${_flashSaleEnd!.year} at ${_flashSaleEnd!.hour}:${_flashSaleEnd!.minute.toString().padLeft(2, '0')}'
-                          : 'Tap to select date & time',
+                            ? '${_flashSaleEnd!.day}/${_flashSaleEnd!.month}/${_flashSaleEnd!.year} at ${_flashSaleEnd!.hour}:${_flashSaleEnd!.minute.toString().padLeft(2, '0')}'
+                            : 'Tap to select date & time',
                         style: TextStyle(
                           color: (_flashSaleEnd != null && _flashSaleEnd is DateTime) ? Colors.black87 : Colors.grey,
                         ),

@@ -12,6 +12,10 @@ import 'package:shop/services/auth_api_service.dart';
 import 'package:shop/services/api_service.dart';
 import 'package:shop/debug_api_test_screen.dart';
 
+// --- NEW IMPORTS ---
+import 'verify_doctors_screen.dart';
+import 'manage_hero_screen.dart';
+
 class AdminPanelScreen extends StatefulWidget {
   const AdminPanelScreen({super.key});
 
@@ -23,7 +27,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
   final ProductsApiService _productsApi = ProductsApiService();
   final AuthApiService _authApiService = AuthApiService();
   final ApiService _apiService = ApiService();
-  
+
   int totalProducts = 0;
   int outOfStockProducts = 0;
   int lowStockProducts = 0;
@@ -38,20 +42,20 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
 
   Future<void> _checkAuthAndLoadStats() async {
     setState(() => _isLoading = true);
-    
+
     try {
       // Check if we have valid admin session and token
       final token = await _apiService.getAuthToken();
       final userSession = await UserSession.getUserSession();
-      
-      if (token == null || userSession == null || 
+
+      if (token == null || userSession == null ||
           userSession['userData'] == null ||
           userSession['userData']['role']?.toString().toLowerCase() != 'admin') {
         throw Exception('Admin authentication required. Please log out and log back in as an administrator.');
       }
-      
+
       print('✅ Admin authentication verified, loading stats...');
-      
+
       // Now try to load products and stats
       await _loadProductsAndCalculateStats();
     } catch (e) {
@@ -72,9 +76,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
 
     try {
       // Fetch products from API with a high limit to get all products for statistics
-      final products = await _productsApi.getAllProducts();
+      final products = await _productsApi.getAllProductsForAdmin();
       print('📦 Loaded ${products.length} products for stats');
-      
+
       _products = products;
       _calculateStats();
       print('📊 Stats calculated: Total=$totalProducts, OutOfStock=$outOfStockProducts, LowStock=$lowStockProducts');
@@ -144,7 +148,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   Navigator.pushNamedAndRemoveUntil(
                     context,
                     entryPointScreenRoute,
-                    (route) => false,
+                        (route) => false,
                   );
                   break;
                 case 'logout':
@@ -152,7 +156,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                   Navigator.pushNamedAndRemoveUntil(
                     context,
                     logInScreenRoute,
-                    (route) => false,
+                        (route) => false,
                   );
                   break;
               }
@@ -184,24 +188,24 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
       ),
       body: _isLoading
           ? const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  CircularProgressIndicator(color: primaryColor),
-                  SizedBox(height: 16),
-                  Text(
-                    'Loading product data...',
-                    style: TextStyle(color: Colors.grey),
-                  ),
-                ],
-              ),
-            )
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            CircularProgressIndicator(color: primaryColor),
+            SizedBox(height: 16),
+            Text(
+              'Loading product data...',
+              style: TextStyle(color: Colors.grey),
+            ),
+          ],
+        ),
+      )
           : SingleChildScrollView(
-              padding: const EdgeInsets.all(defaultPadding),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Admin Welcome Section
+        padding: const EdgeInsets.all(defaultPadding),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Admin Welcome Section
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(defaultPadding),
@@ -253,9 +257,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                 ],
               ),
             ),
-            
+
             const SizedBox(height: defaultPadding * 1.5),
-            
+
             Text(
               "Dashboard Overview",
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -263,7 +267,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               ),
             ),
             const SizedBox(height: defaultPadding),
-            
+
             // Dashboard Cards
             Row(
               children: [
@@ -287,7 +291,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               ],
             ),
             const SizedBox(height: defaultPadding),
-            
+
             Row(
               children: [
                 Expanded(
@@ -309,9 +313,9 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: defaultPadding * 2),
-            
+
             Text(
               "Management Tools",
               style: Theme.of(context).textTheme.headlineSmall?.copyWith(
@@ -319,7 +323,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
               ),
             ),
             const SizedBox(height: defaultPadding),
-            
+
             // Management Options
             _buildManagementOption(
               context,
@@ -339,7 +343,7 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                 );
               },
             ),
-            
+
             _buildManagementOption(
               context,
               title: "Product Management",
@@ -356,27 +360,49 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                 });
               },
             ),
-            
+
+            // --- NEW: Verify Doctors ---
+            _buildManagementOption(
+              context,
+              title: 'Verify Doctors',
+              subtitle: 'Approve pending doctor accounts',
+              iconData: Icons.verified_user_outlined, // Use iconData for Material Icons
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const VerifyDoctorsScreen()),
+              ),
+            ),
+
+            // --- NEW: Hero Section ---
+            _buildManagementOption(
+              context,
+              title: 'Hero Section',
+              subtitle: 'Update home screen banner',
+              iconData: Icons.view_carousel_outlined, // Use iconData for Material Icons
+              onTap: () => Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const ManageHeroScreen()),
+              ),
+            ),
+
             _buildManagementOption(
               context,
               title: "Order Management",
               subtitle: "View and manage customer orders",
               icon: "assets/icons/Order.svg",
               onTap: () {
-                // Navigate to order management (to be implemented)
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Order Management - Coming Soon")),
                 );
               },
             ),
-            
+
             _buildManagementOption(
               context,
               title: "Product Analytics",
               subtitle: "View sales analytics and product performance",
               icon: "assets/icons/Setting.svg",
               onTap: () {
-                // Navigate to analytics (to be implemented)
                 ScaffoldMessenger.of(context).showSnackBar(
                   const SnackBar(content: Text("Analytics - Coming Soon")),
                 );
@@ -388,13 +414,15 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
     );
   }
 
+  // Helper widget updated to support both SVG and IconData
   Widget _buildManagementOption(
-    BuildContext context, {
-    required String title,
-    required String subtitle,
-    required String icon,
-    required VoidCallback onTap,
-  }) {
+      BuildContext context, {
+        required String title,
+        required String subtitle,
+        String? icon, // Make optional
+        IconData? iconData, // Add this
+        required VoidCallback onTap,
+      }) {
     return Container(
       margin: const EdgeInsets.only(bottom: defaultPadding),
       decoration: BoxDecoration(
@@ -421,7 +449,8 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
             borderRadius: BorderRadius.circular(8),
           ),
           child: Center(
-            child: SvgPicture.asset(
+            child: icon != null
+                ? SvgPicture.asset(
               icon,
               height: 24,
               width: 24,
@@ -429,6 +458,11 @@ class _AdminPanelScreenState extends State<AdminPanelScreen> {
                 primaryColor,
                 BlendMode.srcIn,
               ),
+            )
+                : Icon(
+              iconData,
+              color: primaryColor,
+              size: 24,
             ),
           ),
         ),

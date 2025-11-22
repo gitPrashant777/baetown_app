@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:shop/entry_point.dart';
 import 'package:shop/screens/Onboarding/view/onboarding_flow_manager.dart';
+import 'package:shop/screens/auth/views/ConsultantLoginScreen.dart';
+import 'package:shop/screens/auth/views/ConsultantSignupScreen.dart';
 import 'package:shop/screens/auth/views/terms_of_services_screen.dart';
 import 'package:shop/models/product_model.dart';
 
@@ -99,6 +101,10 @@ Route<dynamic> generateRoute(RouteSettings settings) {
           }
         },
       );
+    case signUpScreenRoute:
+      return MaterialPageRoute(
+        builder: (context) => const ConsultantSignupScreen(),
+      );
     case productReviewsScreenRoute:
       return MaterialPageRoute(
         builder: (context) => const ProductReviewsScreen(),
@@ -111,6 +117,11 @@ Route<dynamic> generateRoute(RouteSettings settings) {
       return MaterialPageRoute(
         builder: (context) => const HomeScreen(),
       );
+    case loginConsult:
+      return MaterialPageRoute(
+        builder: (context) => const ConsultantLoginScreen(),
+      );
+
     case kitDetailsRoute:
       return MaterialPageRoute(
         builder: (context) =>  MyKitScreen(),

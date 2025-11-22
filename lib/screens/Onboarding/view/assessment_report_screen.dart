@@ -48,10 +48,14 @@ class _AssessmentReportScreenState extends State<AssessmentReportScreen> {
   double _totalPrice = 0.0;
   double _mrpPrice = 0.0;
   bool _isSaving = false; // For button loading state
+// Add these constants after your state variables
+  static const brandSecondary = Color(0xFF04076B);
+  static const brandAccent = Color(0xFF1A1A2E);
 
   // --- 1. URL UPDATED ---
   final String _imageBaseUrl = "https://mern-backend-t3h8.onrender.com/api/v1";
 
+  static const brandPrimary = Color(0xFF020953);
   @override
   void initState() {
     super.initState();
@@ -270,7 +274,7 @@ class _AssessmentReportScreenState extends State<AssessmentReportScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
             content: Text("Kit saved successfully!"),
-            backgroundColor: Colors.green),
+            backgroundColor: brandPrimary),
       );
 
       Navigator.pushNamedAndRemoveUntil(
@@ -462,7 +466,7 @@ class _AssessmentReportScreenState extends State<AssessmentReportScreen> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             decoration: BoxDecoration(
-              color: Colors.green,
+              color: brandPrimary,
               borderRadius: BorderRadius.circular(20),
             ),
             child: Text(
@@ -485,7 +489,7 @@ class _AssessmentReportScreenState extends State<AssessmentReportScreen> {
             child: Text(
               "Stage 2 male pattern hair fall is caused by internal hormone attacking your hair follicles. At your Stage, most hair follicles are still active.",
               style: TextStyle(
-                color: Colors.green[800],
+                color: brandPrimary,
                 height: 1.4,
                 fontSize: 15,
               ),
@@ -553,7 +557,7 @@ class _AssessmentReportScreenState extends State<AssessmentReportScreen> {
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
                         color: isSelected
-                            ? Colors.orange[700]!
+                            ? Colors.blue[700]!
                             : Colors.grey[300]!,
                         width: 1.5,
                       ),
@@ -563,22 +567,30 @@ class _AssessmentReportScreenState extends State<AssessmentReportScreen> {
                         Icon(
                           cause.icon,
                           color:
-                          isSelected ? Colors.orange[800] : Colors.black87,
+                          isSelected ? Colors.blue[800] : Colors.black87,
                           size: 28,
                         ),
                         const SizedBox(height: 12),
-                        Text(
-                          cause.name,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color: isSelected
-                                ? Colors.orange[900]
-                                : Colors.black87,
+                        // --- START FIX ---
+                        SizedBox(
+                          height: 40.0, // Forces a fixed height for 2 lines
+                          child: Align(
+                            alignment: Alignment.center, // Vertically centers 1-line text
+                            child: Text(
+                              cause.name,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color: isSelected
+                                    ? Colors.blue[900]
+                                    : Colors.black87,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                            ),
                           ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
                         ),
+                        // --- END FIX ---
                       ],
                     ),
                   ),
@@ -785,17 +797,25 @@ class _AssessmentReportScreenState extends State<AssessmentReportScreen> {
                           color: isSelected ? Colors.blue[800] : Colors.black87,
                           size: 28,
                         ),
+
                         const SizedBox(height: 12),
-                        Text(
-                          cause.name,
-                          style: TextStyle(
-                            fontSize: 14,
-                            fontWeight: FontWeight.bold,
-                            color:
-                            isSelected ? Colors.blue[900] : Colors.black87,
+                        // --- START FIX ---
+                        SizedBox(
+                          height: 40.0, // Forces a fixed height for 2 lines
+                          child: Align(
+                            alignment: Alignment.center, // Vertically centers 1-line text
+                            child: Text(
+                              cause.name,
+                              style: TextStyle(
+                                fontSize: 14,
+                                fontWeight: FontWeight.bold,
+                                color:
+                                isSelected ? Colors.blue[900] : Colors.black87,
+                              ),
+                              textAlign: TextAlign.center,
+                              maxLines: 2,
+                            ),
                           ),
-                          textAlign: TextAlign.center,
-                          maxLines: 2,
                         ),
                       ],
                     ),
@@ -880,9 +900,7 @@ class _AssessmentReportScreenState extends State<AssessmentReportScreen> {
                 return skinCategories.any((cat) => categoryLower.contains(cat));
               })
                   .toList();
-              // **************************************************
-              // ** END: MODIFIED LOGIC (Category Filter Fix) **
-              // **************************************************
+
 
 
               if (allApiSkinProducts.isEmpty) {
@@ -1128,7 +1146,7 @@ class _AssessmentReportScreenState extends State<AssessmentReportScreen> {
                     width: 600,
                     child: Container(
                       height: 2,
-                      color: Colors.green[600], // <-- Fixed color
+                      color: brandPrimary, // <-- Fixed color
                     ),
                   ),
                   Row(
@@ -1322,13 +1340,13 @@ class _AssessmentReportScreenState extends State<AssessmentReportScreen> {
         color: Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: isSelected ? Colors.green : Colors.grey[200]!,
+          color: isSelected ? brandPrimary : Colors.grey[200]!,
           width: isSelected ? 2 : 1,
         ),
         boxShadow: [
           BoxShadow(
             color: isSelected
-                ? Colors.green.withOpacity(0.05)
+                ? brandPrimary.withOpacity(0.05)
                 : Colors.black.withOpacity(0.05),
             blurRadius: 6,
             offset: const Offset(0, 2),
@@ -1417,7 +1435,7 @@ class _AssessmentReportScreenState extends State<AssessmentReportScreen> {
                 TextButton(
                   onPressed: onIncrement, // Adds 1
                   style: TextButton.styleFrom(
-                    backgroundColor: Colors.green[50],
+                    backgroundColor: brandPrimary,
                     shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8)),
                     padding: const EdgeInsets.symmetric(
@@ -1427,7 +1445,7 @@ class _AssessmentReportScreenState extends State<AssessmentReportScreen> {
                   child: Text(
                     "ADD",
                     style: TextStyle(
-                      color: Colors.green[700],
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                       fontSize: 12,
                     ),
@@ -1586,15 +1604,15 @@ class _AssessmentReportScreenState extends State<AssessmentReportScreen> {
                   padding:
                   const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: Colors.green[50],
+                    color: brandPrimary,
                     borderRadius: BorderRadius.circular(20),
-                    border: Border.all(color: Colors.green[200]!),
+                    border: Border.all(color: brandPrimary!),
                   ),
                   child: Text(
                     addon.discountedPrice.toUpperCase(),
                     style: TextStyle(
                       fontSize: 12,
-                      color: Colors.green[800],
+                      color: Colors.white,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
@@ -1619,13 +1637,13 @@ class _AssessmentReportScreenState extends State<AssessmentReportScreen> {
             color: Colors.white,
             shape: BoxShape.circle,
             border: Border.all(
-              color: Colors.green[600]!,
+              color: brandPrimary,
               width: 2,
             ),
           ),
           child: Icon(
             icon,
-            color: Colors.green[800],
+            color: brandPrimary,
             size: 28,
           ),
         ),

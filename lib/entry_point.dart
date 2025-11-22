@@ -264,7 +264,7 @@ class _EntryPointState extends State<EntryPoint> with TickerProviderStateMixin {
                               colors: [Color(0xFF020953), Color(0xFF04076B)],
                             ).createShader(bounds),
                             child: const Text(
-                              "BAETOWN",
+                              "RITUAL",
                               style: TextStyle(
                                 fontSize: 22,
                                 fontWeight: FontWeight.w600,

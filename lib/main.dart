@@ -3,37 +3,53 @@
 
 import 'package:firebase_core/firebase_core.dart' show Firebase;
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+// ROUTES
 import 'package:shop/route/route_constants.dart';
 import 'package:shop/route/router.dart' as router;
+
+// SERVICES
+import 'package:shop/services/agora_config.dart';
 import 'package:shop/services/api_service.dart';
 import 'package:shop/services/cart_service.dart';
 import 'package:shop/services/cart_wishlist_api_service.dart';
 import 'package:shop/services/firebase_kit_service.dart';
 import 'package:shop/services/products_api_service.dart';
 import 'package:shop/services/reviews_api_service.dart';
-import 'package:shop/theme/app_theme.dart';
+import 'package:shop/services/orders_api_service.dart';
+
+// THEME + SESSION
 import 'package:shop/models/user_session.dart';
-import 'package:provider/provider.dart';
-import 'services/orders_api_service.dart';
+import 'package:shop/theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // --------------------------------------------------
+  //                   AGORA CHAT INIT
+  // --------------------------------------------------
+
+  // ------------------ Load Local Session ------------------
   await UserSession.loadSession();
-  await Firebase.initializeApp(
-    // options: DefaultFirebaseOptions.currentPlatform, // Add your Firebase options here
-  );
-  print('🚨🚨🚨 MAIN: App started - checking existing session...');
+
+  // ------------------ Firebase Init ------------------
+  await Firebase.initializeApp();
+
+  print("🔍 MAIN: Checking existing session...");
   if (UserSession.authToken != null) {
-    print('🚨🚨🚨 MAIN: Found existing token...');
+    print("🔐 MAIN: Found existing token → user logged in");
   } else {
-    print('🚨🚨🚨 MAIN: No existing token found - user needs to login');
+    print("❌ MAIN: No token → user must login");
   }
 
+  // --------------------------------------------------
+  //                   RUN APPLICATION
+  // --------------------------------------------------
   runApp(
     MultiProvider(
       providers: [
-        // --- BASE SERVICES (Create a single instance) ---
+        // Base services (singletons)
         Provider<ApiService>(
           create: (_) => ApiService(),
         ),
@@ -44,8 +60,7 @@ void main() async {
           create: (_) => ProductsApiService(),
         ),
 
-        // --- PROXY PROVIDERS (Services that depend on ApiService) ---
-        // These get the shared ApiService and pass it to the constructor
+        // Services dependent on ApiService
         ProxyProvider<ApiService, ReviewsApiService>(
           update: (_, apiService, __) => ReviewsApiService(apiService),
         ),
@@ -59,14 +74,12 @@ void main() async {
           update: (_, apiService, __) => WishlistApiService(apiService),
         ),
 
-        // --- CHANGENOTIFIER PROVIDERS (Services that manage UI state) ---
+        // Cart state management
         ChangeNotifierProvider<CartService>(
           create: (context) => CartService(
-            // It gets the shared CartApiService
             Provider.of<CartApiService>(context, listen: false),
-          )..fetchCart(), // Fetch the cart as soon as the app starts
+          )..fetchCart(),
         ),
-
       ],
       child: const MyApp(),
     ),
@@ -81,8 +94,10 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
       title: 'BAETOWN Jewelry - Premium Jewelry Collection',
-      theme: AppTheme.lightTheme(context),
+
       themeMode: ThemeMode.light,
+      theme: AppTheme.lightTheme(context),
+
       onGenerateRoute: router.generateRoute,
       initialRoute: splashScreenRoute,
     );

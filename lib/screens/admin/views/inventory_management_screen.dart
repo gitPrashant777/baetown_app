@@ -68,7 +68,7 @@ class _InventoryManagementScreenState extends State<InventoryManagementScreen> {
   Future<void> _loadProducts() async {
     setState(() => _isLoading = true);
     try {
-      final loadedProducts = await _productsApiService.getAllProducts();
+      final loadedProducts = await _productsApiService.getAllProductsForAdmin();
       setState(() {
         products = loadedProducts;
         _isLoading = false;

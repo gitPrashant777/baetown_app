@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:shop/constants.dart';
 import 'package:shop/models/product_model.dart';
-import 'package:shop/screens/admin/views/components/inventory_product_card.dart';
 import 'package:shop/screens/admin/views/product_management_screen_with_cloudinary.dart';
 import 'package:shop/services/products_api_service.dart';
 
@@ -20,22 +19,37 @@ class _ProductListManagementScreenState extends State<ProductListManagementScree
   final List<String> filterOptions = ['All', 'In Stock', 'Out of Stock', 'Low Stock'];
   final ProductsApiService _productsApiService = ProductsApiService();
 
+  // 1. Search Controller
+  final TextEditingController _searchController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     _loadProducts();
+    // 2. Listen to search input changes
+    _searchController.addListener(() {
+      setState(() {});
+    });
+  }
+
+  @override
+  void dispose() {
+    // 3. Dispose controller
+    _searchController.dispose();
+    super.dispose();
   }
 
   Future<void> _loadProducts() async {
     print('🔄 Loading products from API...');
     setState(() => _isLoading = true);
     try {
-      final loadedProducts = await _productsApiService.getAllProducts();
+      // ---------------------------------------------------------
+      // FIX: Changed from getAllProducts() to getAllProductsForAdmin()
+      // This fetches all products (high limit) instead of just 8
+      // ---------------------------------------------------------
+      final loadedProducts = await _productsApiService.getAllProductsForAdmin();
+
       print('📦 Products loaded: ${loadedProducts.length}');
-      for (int i = 0; i < loadedProducts.length && i < 3; i++) {
-        final product = loadedProducts[i];
-        print('   Product $i: ${product.title} (ID: ${product.productId})');
-      }
       setState(() {
         products = loadedProducts;
         _isLoading = false;
@@ -53,16 +67,35 @@ class _ProductListManagementScreenState extends State<ProductListManagementScree
   }
 
   List<ProductModel> get filteredProducts {
+    // 4. Apply Search Logic + Category Logic
+    List<ProductModel> result;
+
+    // Step A: Filter by Status
     switch (selectedFilter) {
       case 'In Stock':
-        return products.where((p) => !p.isOutOfStock && p.stockQuantity > 5).toList();
+        result = products.where((p) => !p.isOutOfStock && p.stockQuantity > 5).toList();
+        break;
       case 'Out of Stock':
-        return products.where((p) => p.isOutOfStock || p.stockQuantity <= 0).toList();
+        result = products.where((p) => p.isOutOfStock || p.stockQuantity <= 0).toList();
+        break;
       case 'Low Stock':
-        return products.where((p) => p.stockQuantity > 0 && p.stockQuantity <= 5).toList();
+        result = products.where((p) => p.stockQuantity > 0 && p.stockQuantity <= 5).toList();
+        break;
       default:
-        return products;
+        result = List.from(products);
     }
+
+    // Step B: Filter by Search Query (Title or Brand)
+    if (_searchController.text.isNotEmpty) {
+      final query = _searchController.text.toLowerCase();
+      result = result.where((p) {
+        final title = p.title.toLowerCase();
+        final brand = p.brandName?.toLowerCase() ?? '';
+        return title.contains(query) || brand.contains(query);
+      }).toList();
+    }
+
+    return result;
   }
 
   void _addNewProduct() {
@@ -152,6 +185,43 @@ class _ProductListManagementScreenState extends State<ProductListManagementScree
       ),
       body: Column(
         children: [
+          // 5. Added Search Bar UI
+          Container(
+            padding: const EdgeInsets.fromLTRB(defaultPadding, defaultPadding, defaultPadding, 0),
+            color: Theme.of(context).scaffoldBackgroundColor,
+            child: TextField(
+              controller: _searchController,
+              decoration: InputDecoration(
+                hintText: "Search by name or brand...",
+                prefixIcon: const Icon(Icons.search),
+                fillColor: Colors.white,
+                filled: true,
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide.none,
+                ),
+                enabledBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: BorderSide(color: Colors.grey.withOpacity(0.2)),
+                ),
+                focusedBorder: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(12),
+                  borderSide: const BorderSide(color: primaryColor),
+                ),
+                suffixIcon: _searchController.text.isNotEmpty
+                    ? IconButton(
+                  icon: const Icon(Icons.clear),
+                  onPressed: () {
+                    _searchController.clear();
+                    FocusScope.of(context).unfocus();
+                  },
+                )
+                    : null,
+              ),
+            ),
+          ),
+
           // Filter Section
           Container(
             padding: const EdgeInsets.all(defaultPadding),
@@ -169,7 +239,7 @@ class _ProductListManagementScreenState extends State<ProductListManagementScree
                       ),
                     ),
                     Text(
-                      "${filteredProducts.length} products",
+                      "${filteredProducts.length} found",
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: primaryColor,
                         fontWeight: FontWeight.w600,
@@ -208,67 +278,71 @@ class _ProductListManagementScreenState extends State<ProductListManagementScree
               ],
             ),
           ),
-          
+
           // Products List
           Expanded(
             child: _isLoading
                 ? const Center(child: CircularProgressIndicator())
                 : filteredProducts.isEmpty
-                    ? Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            SvgPicture.asset(
-                              "assets/icons/Category.svg",
-                              height: 64,
-                              width: 64,
-                              colorFilter: ColorFilter.mode(
-                                Theme.of(context).disabledColor,
-                                BlendMode.srcIn,
-                              ),
-                            ),
-                            const SizedBox(height: defaultPadding),
-                        Text(
-                          "No products found",
-                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                            color: Theme.of(context).disabledColor,
-                          ),
-                        ),
-                        const SizedBox(height: defaultPadding / 2),
-                        Text(
-                          "Add some products to get started",
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: Theme.of(context).disabledColor,
-                          ),
-                        ),
-                        const SizedBox(height: defaultPadding),
-                        ElevatedButton.icon(
-                          onPressed: _addNewProduct,
-                          icon: const Icon(Icons.add),
-                          label: const Text("Add Product"),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: primaryColor,
-                            foregroundColor: Colors.white,
-                          ),
-                        ),
-                      ],
+                ? Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  SvgPicture.asset(
+                    "assets/icons/Category.svg",
+                    height: 64,
+                    width: 64,
+                    colorFilter: ColorFilter.mode(
+                      Theme.of(context).disabledColor,
+                      BlendMode.srcIn,
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.all(defaultPadding),
-                    itemCount: filteredProducts.length,
-                    itemBuilder: (context, index) {
-                      final product = filteredProducts[index];
-                      return Padding(
-                        padding: const EdgeInsets.only(bottom: defaultPadding),
-                        child: ProductManagementCard(
-                          product: product,
-                          onEdit: () => _editProduct(product),
-                          onDelete: () => _deleteProduct(product),
-                        ),
-                      );
-                    },
                   ),
+                  const SizedBox(height: defaultPadding),
+                  Text(
+                    _searchController.text.isNotEmpty
+                        ? "No products match your search"
+                        : "No products found",
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      color: Theme.of(context).disabledColor,
+                    ),
+                  ),
+                  const SizedBox(height: defaultPadding / 2),
+                  if (_searchController.text.isEmpty) ...[
+                    Text(
+                      "Add some products to get started",
+                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        color: Theme.of(context).disabledColor,
+                      ),
+                    ),
+                    const SizedBox(height: defaultPadding),
+                    ElevatedButton.icon(
+                      onPressed: _addNewProduct,
+                      icon: const Icon(Icons.add),
+                      label: const Text("Add Product"),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryColor,
+                        foregroundColor: Colors.white,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            )
+                : ListView.builder(
+              padding: const EdgeInsets.all(defaultPadding),
+              itemCount: filteredProducts.length,
+              itemBuilder: (context, index) {
+                final product = filteredProducts[index];
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: defaultPadding),
+                  child: ProductManagementCard(
+                    product: product,
+                    onEdit: () => _editProduct(product),
+                    onDelete: () => _deleteProduct(product),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -353,7 +427,8 @@ class ProductManagementCard extends StatelessWidget {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(8),
-                    child: PageView.builder(
+                    child: product.images.isNotEmpty
+                        ? PageView.builder(
                       itemCount: product.images.length,
                       itemBuilder: (context, index) {
                         return Image.network(
@@ -370,12 +445,16 @@ class ProductManagementCard extends StatelessWidget {
                           },
                         );
                       },
+                    )
+                        : Container(
+                      color: Colors.grey.withOpacity(0.2),
+                      child: const Icon(Icons.image, color: Colors.grey),
                     ),
                   ),
                 ),
-                
+
                 const SizedBox(width: defaultPadding),
-                
+
                 // Product Details
                 Expanded(
                   child: Column(
@@ -391,9 +470,9 @@ class ProductManagementCard extends StatelessWidget {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      
+
                       const SizedBox(height: 4),
-                      
+
                       // Brand Name
                       Text(
                         product.brandName ?? "BAETOWN",
@@ -402,9 +481,9 @@ class ProductManagementCard extends StatelessWidget {
                           fontSize: 14,
                         ),
                       ),
-                      
+
                       const SizedBox(height: 8),
-                      
+
                       // Images count badge
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -438,7 +517,7 @@ class ProductManagementCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                
+
                 // Stock Information
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.end,
@@ -462,9 +541,9 @@ class ProductManagementCard extends StatelessWidget {
                         ),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 8),
-                    
+
                     // Stock Quantity
                     Text(
                       "Stock: ${product.stockQuantity}",
@@ -474,9 +553,9 @@ class ProductManagementCard extends StatelessWidget {
                         color: _getStockStatusColor(),
                       ),
                     ),
-                    
+
                     const SizedBox(height: 4),
-                    
+
                     // Price
                     Text(
                       "₹${product.price.toStringAsFixed(0)}",
@@ -490,9 +569,9 @@ class ProductManagementCard extends StatelessWidget {
                 ),
               ],
             ),
-            
+
             const SizedBox(height: defaultPadding),
-            
+
             // Action Buttons
             Row(
               children: [
