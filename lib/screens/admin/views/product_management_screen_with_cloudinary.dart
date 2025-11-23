@@ -477,19 +477,8 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
         actions: [
-          if (_isLoading)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: SizedBox(
-                width: 20,
-                height: 20,
-                child: CircularProgressIndicator(
-                  color: Colors.white,
-                  strokeWidth: 2,
-                ),
-              ),
-            )
-          else
+
+
             TextButton(
               onPressed: _saveProduct,
               child: const Text(
@@ -970,6 +959,14 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
           onChanged: _isLoading ? null : (value) {
             setState(() {
               _isOutOfStock = value;
+              // 🎯 ADDED LOGIC: Set stock to '0' when marked as out of stock
+              if (value) {
+                _stockController.text = '0';
+              } else if (_stockController.text == '0') {
+                // Optionally reset to a default if it was 0 due to 'Out of Stock'
+                // This is a design choice. Leaving it as '0' might be safer.
+                // _stockController.text = '';
+              }
             });
           },
           activeColor: primaryColor,

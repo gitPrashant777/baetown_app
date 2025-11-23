@@ -147,9 +147,9 @@ Route<dynamic> generateRoute(RouteSettings settings) {
         builder: (context) => const OnSaleScreen(),
       );
     case kidsScreenRoute:
-      return MaterialPageRoute(
-        builder: (context) => const KidsScreen(),
-      );
+      // return MaterialPageRoute(
+      //   builder: (context) => const KidsScreen(),
+      // );
     case searchScreenRoute:
       return MaterialPageRoute(
         builder: (context) => const SearchScreen(),

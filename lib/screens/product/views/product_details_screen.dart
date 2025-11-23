@@ -31,7 +31,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
   late WishlistApiService _wishlistApi;
   late CartService _cartService;
   final ProductsApiService _productsApi = ProductsApiService();
-
+  Future<List<Map<String, dynamic>>>? _reviewsFuture;
   bool _isInWishlist = false;
   double _reviewRating = 5.0;
   final TextEditingController _reviewController = TextEditingController();
@@ -46,6 +46,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     _wishlistApi = Provider.of<WishlistApiService>(context, listen: false);
     _cartService = Provider.of<CartService>(context, listen: false);
     _checkWishlist();
+    _reviewsFuture = fetchReviews(); // <-- Initialize here
   }
 
   @override
@@ -58,13 +59,14 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     final productId = widget.product.productId ?? '';
     final result = await _productsApi.deleteReview(productId, reviewId);
     if (result['success'] == true) {
-      setState(() {});
+      setState(() {
+        _reviewsFuture = fetchReviews(); // <-- Re-fetch the reviews
+      });
       _showSnackBar('Review deleted successfully', isError: false);
     } else {
       _showSnackBar('Failed to delete review', isError: true);
     }
   }
-
   Future<void> submitReview() async {
     if (_reviewController.text.trim().isEmpty) {
       _showSnackBar('Please write a review', isError: true);
@@ -83,6 +85,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
     if (result['success'] == true) {
       _reviewController.clear();
       setState(() => _reviewRating = 5.0);
+      _reviewsFuture = fetchReviews(); // <-- Re-fetch the reviews
       _showSnackBar('Review submitted!', isError: false);
     } else {
       _showSnackBar('Failed to submit review', isError: true);
@@ -818,7 +821,7 @@ class _ProductDetailsScreenState extends State<ProductDetailsScreen> {
                     ),
                     const SizedBox(height: 20),
                     FutureBuilder<List<Map<String, dynamic>>>(
-                      future: fetchReviews(),
+                      future: _reviewsFuture, // <-- Use the stored future
                       builder: (context, snapshot) {
                         if (snapshot.connectionState == ConnectionState.waiting) {
                           return const Center(child: CircularProgressIndicator());
