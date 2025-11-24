@@ -1,35 +1,111 @@
 // lib/screens/Onboarding/view/kit_detail_screen.dart
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import 'package:shop/models/SavedKitModel.dart';
-import 'package:shop/models/product_model.dart'; // Import your ProductModel
+import 'package:shop/models/product_model.dart';
+import 'package:shop/services/cart_service.dart';
 
-class KitDetailScreen extends StatelessWidget {
+class KitDetailScreen extends StatefulWidget {
   final SavedKitModel kit;
-
-  // Base URL for images, same as in your assessment screen
-  final String _imageBaseUrl = "https://mern-backend-t3h8.onrender.com";
 
   const KitDetailScreen({super.key, required this.kit});
 
-  // Helper to build correct image URLs
-  String _buildProductImageUrl(ProductModel product) {
-    String imageUrl = product.image;
-    if (imageUrl.isEmpty && product.images.isNotEmpty) {
-      imageUrl = product.images.first;
-    } else if (imageUrl.isEmpty) {
-      return 'https://via.placeholder.com/150';
+  @override
+  State<KitDetailScreen> createState() => _KitDetailScreenState();
+}
+
+class _KitDetailScreenState extends State<KitDetailScreen> {
+  final String _imageBaseUrl = "https://mern-backend-t3h8.onrender.com";
+  String? _addingProductId;
+
+  // --- SAFE IMAGE BUILDER ---
+  String? _buildProductImageUrl(ProductModel product) {
+    try {
+      String imageUrl = product.image;
+      if (imageUrl.isEmpty && product.images.isNotEmpty) {
+        imageUrl = product.images.first;
+      }
+      if (imageUrl.isEmpty) return null;
+
+      if (imageUrl.startsWith('http')) return imageUrl;
+      if (imageUrl.startsWith('/')) return '$_imageBaseUrl$imageUrl';
+      return '$_imageBaseUrl/$imageUrl';
+    } catch (e) {
+      return null;
     }
-    if (imageUrl.startsWith('http')) return imageUrl;
-    if (imageUrl.startsWith('/')) return '$_imageBaseUrl$imageUrl';
-    return '$_imageBaseUrl/$imageUrl';
+  }
+
+  // --- ADD TO CART LOGIC ---
+  Future<void> _addToCart(BuildContext context, ProductModel product) async {
+    setState(() => _addingProductId = product.productId);
+
+    try {
+      final cartService = Provider.of<CartService>(context, listen: false);
+      bool success = await cartService.addToCart(product, quantity: 1);
+
+      if (!mounted) return;
+
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("${product.title} added to cart!"),
+          backgroundColor: Colors.green,
+          duration: const Duration(seconds: 1),
+        ));
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+          content: Text("Could not add to cart."),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } catch (e) {
+      if(mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text("Error: $e"),
+          backgroundColor: Colors.red,
+        ));
+      }
+    } finally {
+      if (mounted) setState(() => _addingProductId = null);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Build list items manually to avoid Layout/Index errors
+    List<Widget> listItems = [];
+
+    // 1. Header
+    listItems.add(_buildDiagnosisCard(context));
+    listItems.add(const SizedBox(height: 24));
+    listItems.add(Text(
+      "Products in this Kit",
+      style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+        fontWeight: FontWeight.bold,
+        color: Colors.black,
+      ),
+    ));
+    listItems.add(const SizedBox(height: 16));
+
+    // 2. Products
+    if (widget.kit.products.isEmpty) {
+      listItems.add(const Center(child: Padding(
+        padding: EdgeInsets.all(20),
+        child: Text("No products found."),
+      )));
+    } else {
+      for (var product in widget.kit.products) {
+        listItems.add(_buildProductCard(context, product));
+      }
+    }
+
+    // 3. Bottom Padding
+    listItems.add(const SizedBox(height: 40));
+
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        title: Text(kit.kitName, style: const TextStyle(color: Colors.black)),
+        title: Text(widget.kit.kitName.isNotEmpty ? widget.kit.kitName : "Saved Kit",
+            style: const TextStyle(color: Colors.black)),
         backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
@@ -37,38 +113,14 @@ class KitDetailScreen extends StatelessWidget {
           onPressed: () => Navigator.of(context).pop(),
         ),
       ),
-      body: SingleChildScrollView(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // 1. Diagnosis Card
-              _buildDiagnosisCard(context),
-              const SizedBox(height: 24),
-
-              // 2. Products List
-              Text(
-                "Products in this Kit",
-                style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                  color: Colors.black,
-                ),
-              ),
-              const SizedBox(height: 16),
-
-              // Build a list of product cards
-              ...kit.products.map(
-                    (product) => _buildProductCard(context, product),
-              ),
-            ],
-          ),
-        ),
+      // Use standard ListView (not builder) for stability
+      body: ListView(
+        padding: const EdgeInsets.all(16),
+        children: listItems,
       ),
     );
   }
 
-  // Helper widget for the Diagnosis Card
   Widget _buildDiagnosisCard(BuildContext context) {
     return Container(
       width: double.infinity,
@@ -81,40 +133,20 @@ class KitDetailScreen extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            "Your Diagnosis",
-            style: TextStyle(
-              fontSize: 16,
-              fontWeight: FontWeight.bold,
-              color: Colors.blue[900],
-            ),
-          ),
+          Text("Your Diagnosis", style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.blue[900])),
           const SizedBox(height: 8),
-          Text(
-            kit.diagnosis,
-            style: TextStyle(
-              fontSize: 15,
-              color: Colors.blue[800],
-              height: 1.4,
-            ),
-          ),
+          Text(widget.kit.diagnosis, style: TextStyle(fontSize: 15, color: Colors.blue[800])),
           const SizedBox(height: 12),
-          Text(
-            "Assessed on ${kit.assessmentDate}",
-            style: TextStyle(
-              fontSize: 13,
-              color: Colors.blue[700],
-            ),
-          ),
+          Text("Assessed on ${widget.kit.assessmentDate}", style: TextStyle(fontSize: 13, color: Colors.blue[700])),
         ],
       ),
     );
   }
 
-  // Helper widget for a single Product Card
   Widget _buildProductCard(BuildContext context, ProductModel product) {
     final imageUrl = _buildProductImageUrl(product);
-    final finalPrice = (product.priceAfetDiscount ?? product.price);
+    final price = product.priceAfetDiscount ?? product.price;
+    final isLoading = _addingProductId == product.productId;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
@@ -125,58 +157,42 @@ class KitDetailScreen extends StatelessWidget {
         border: Border.all(color: Colors.grey[200]!),
       ),
       child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Image
           ClipRRect(
             borderRadius: BorderRadius.circular(8),
-            child: Image.network(
-              imageUrl,
-              width: 70,
-              height: 70,
-              fit: BoxFit.cover,
-              errorBuilder: (c, e, s) => Container(
-                width: 70,
-                height: 70,
-                color: Colors.grey[200],
-                child: Icon(Icons.shopping_bag_outlined, color: Colors.grey[600]),
-              ),
+            child: Container(
+              width: 70, height: 70, color: Colors.grey[100],
+              child: imageUrl != null
+                  ? Image.network(imageUrl, fit: BoxFit.cover, errorBuilder: (_,__,___) => const Icon(Icons.image_not_supported))
+                  : const Icon(Icons.image_not_supported),
             ),
           ),
           const SizedBox(width: 12),
-
-          // Details
+          // Info
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  product.title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  product.description,
-                  style: const TextStyle(fontSize: 13, color: Colors.grey),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  "₹${finalPrice.toStringAsFixed(0)}",
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: Colors.black,
-                  ),
-                ),
+                Text(product.title, maxLines: 1, overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+                Text("₹${price.toStringAsFixed(0)}",
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Color(0xFF020953))),
               ],
             ),
           ),
+          // Button
+          ElevatedButton(
+            onPressed: isLoading ? null : () => _addToCart(context, product),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFF020953),
+              minimumSize: const Size(60, 36),
+              padding: const EdgeInsets.symmetric(horizontal: 10),
+            ),
+            child: isLoading
+                ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                : const Text("ADD", style: TextStyle(color: Colors.white, fontSize: 12)),
+          )
         ],
       ),
     );

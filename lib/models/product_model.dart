@@ -1,5 +1,7 @@
 // lib/models/product_model.dart
 
+import 'dart:convert';
+
 class ProductModel {
   final String? productId;
   final String title;
@@ -45,28 +47,28 @@ class ProductModel {
     this.flashSaleEnd,
   });
 
-  // Helper to safely extract images from any format (String, Map, etc.)
-  static List<String> _parseImages(dynamic imagesData) {
-    List<String> parsed = [];
-    if (imagesData != null && imagesData is List) {
-      for (var item in imagesData) {
-        if (item is String && item.isNotEmpty) {
-          parsed.add(item);
-        } else if (item is Map) {
-          // Check typical keys for image URL
-          final url = item['url'] ?? item['secure_url'] ?? item['link'] ?? item['src'];
-          if (url != null && url.toString().isNotEmpty) {
-            parsed.add(url.toString());
-          }
-        }
-      }
-    }
-    // Ensure at least one image exists
-    if (parsed.isEmpty) {
-      parsed.add(_placeholderImage);
-    }
-    return parsed;
-  }
+  // // Helper to safely extract images from any format (String, Map, etc.)
+  // static List<String> _parseImages(dynamic imagesData) {
+  //   List<String> parsed = [];
+  //   if (imagesData != null && imagesData is List) {
+  //     for (var item in imagesData) {
+  //       if (item is String && item.isNotEmpty) {
+  //         parsed.add(item);
+  //       } else if (item is Map) {
+  //         // Check typical keys for image URL
+  //         final url = item['url'] ?? item['secure_url'] ?? item['link'] ?? item['src'];
+  //         if (url != null && url.toString().isNotEmpty) {
+  //           parsed.add(url.toString());
+  //         }
+  //       }
+  //     }
+  //   }
+  //   // Ensure at least one image exists
+  //   if (parsed.isEmpty) {
+  //     parsed.add(_placeholderImage);
+  //   }
+  //   return parsed;
+  // }
 
   // Create from API response (backend data)
   factory ProductModel.fromApi(Map<String, dynamic> json) {
@@ -148,34 +150,72 @@ class ProductModel {
       'flashSaleEnd': flashSaleEnd?.toIso8601String(),
     };
   }
+// Location: lib/models/product_model.dart (or wherever ProductModel is defined)
 
-  // Create from local storage JSON / Firebase
+  static List<String> _parseImages(dynamic input) {
+    List<String> result = [];
+
+    if (input == null) return [];
+
+    if (input is List) {
+      for (var item in input) {
+        // Case A: Simple String (Old Data)
+        if (item is String && item.isNotEmpty) {
+          result.add(item);
+        }
+        // Case B: Map/Object (New Cloudinary Data)
+        else if (item is Map) {
+          // --- ADDED FIX: Check common MERN keys 'image' and 'imageUrl' ---
+          var url = item['url'] ?? item['secure_url'] ?? item['downloadUrl'] ?? item['image'] ?? item['imageUrl'];
+          // --- END OF ADDED FIX ---
+
+          if (url != null) {
+            result.add(url.toString());
+          }
+        }
+      }
+    }
+
+    if (result.isNotEmpty) {
+      return result;
+    }
+
+    // FALLBACK:
+    return ['https://placehold.co/600x400/F5F5F5/CCC?text=No+Image'];
+  }
   factory ProductModel.fromJson(Map<String, dynamic> json) {
+    // This now handles both Strings and Objects correctly
     final imagesList = _parseImages(json['images']);
 
     return ProductModel(
       productId: json['productId']?.toString() ?? json['_id']?.toString() ?? json['id']?.toString() ?? '',
-      title: json['title'] ?? json['name'] ?? '',
-      brandName: json['brandName'] ?? 'BAETOWN',
+      title: json['title'] ?? json['name'] ?? '', // Backend usually sends 'name'
+      brandName: json['brandName'] ?? json['brand'] ?? 'BAETOWN', // Check for 'brand' too
       description: json['description'] ?? '',
       category: json['category'] ?? '',
       price: double.tryParse(json['price']?.toString() ?? '0') ?? 0.0,
-      stockQuantity: int.tryParse(json['stockQuantity']?.toString() ?? '0') ?? 0,
+      stockQuantity: int.tryParse(json['stock']?.toString() ?? json['stockQuantity']?.toString() ?? '0') ?? 0, // Check for 'stock'
 
-      // ✅ FIX: Parse Max Order Quantity from local JSON
       maxOrderQuantity: int.tryParse(json['maxOrderQuantity']?.toString() ?? '5') ?? 5,
 
       isOutOfStock: json['isOutOfStock'] ?? false,
 
-      image: imagesList.first,
+      // Safely handle the first image
+      image: imagesList.isNotEmpty ? imagesList.first : '',
       images: imagesList,
 
-      priceAfetDiscount: double.tryParse(json['priceAfetDiscount']?.toString() ?? ''),
-      dicountpercent: int.tryParse(json['dicountpercent']?.toString() ?? ''),
-      isOnSale: json['isOnSale'],
-      isPopular: json['isPopular'],
-      isBestSeller: json['isBestSeller'],
-      isFlashSale: json['isFlashSale'],
+      // Handle sale price logic if backend sends 'salePrice'
+      priceAfetDiscount: json['salePrice'] != null
+          ? double.tryParse(json['salePrice'].toString())
+          : double.tryParse(json['priceAfetDiscount']?.toString() ?? ''),
+
+      dicountpercent: int.tryParse(json['dicountpercent']?.toString() ?? json['discount']?.toString() ?? '0'), // Check for 'discount'
+
+      isOnSale: json['isOnSale'] ?? false,
+      isPopular: json['isPopular'] ?? false,
+      isBestSeller: json['isBestSeller'] ?? false,
+      isFlashSale: json['isFlashSale'] ?? false,
+
       flashSaleEnd: json['flashSaleEnd'] != null
           ? DateTime.tryParse(json['flashSaleEnd'].toString())
           : null,

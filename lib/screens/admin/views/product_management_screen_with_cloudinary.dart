@@ -540,7 +540,7 @@ class _ProductManagementScreenWithCloudinaryState extends State<ProductManagemen
                   child: _isLoading
                       ? const SizedBox(
                     width: 20,
-                    height: 20,
+                    height: 50,
                     child: CircularProgressIndicator(
                       color: Colors.white,
                       strokeWidth: 2,
